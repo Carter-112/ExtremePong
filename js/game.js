@@ -26,8 +26,13 @@ const Game = {
       return;
     }
     
-    // Hide main menu using UI system
-    UI.hidePanel('mainMenu');
+    // Hide ALL panels to ensure a clean game view
+    document.querySelectorAll('.ui-panel').forEach(panel => {
+      panel.style.display = 'none';
+    });
+    
+    // Make sure the game container is visible
+    document.querySelector('.game-container').style.display = 'block';
     
     // Reset game state
     this.resetGame();
@@ -37,7 +42,13 @@ const Game = {
     console.log('Game state changed to:', this.gameState);
     
     // Show score display
-    document.querySelector('.score-container').style.display = 'flex';
+    const scoreContainer = document.querySelector('.score-container');
+    if (scoreContainer) {
+      scoreContainer.style.display = 'flex';
+      scoreContainer.style.zIndex = '5'; // Ensure it's visible above other elements
+    } else {
+      console.error('Score container not found');
+    }
     
     // Update score display
     UI.updateScoreDisplay();

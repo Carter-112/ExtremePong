@@ -319,6 +319,24 @@ select:focus {
   margin-top: 20px;
 }
 
+/* Score container */
+.score-container {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#scores {
+  display: flex;
+  justify-content: space-between;
+  width: 300px;
+}
+
 /* Player scores */
 .player-score {
   font-size: 60px;
