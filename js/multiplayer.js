@@ -112,12 +112,115 @@ const Multiplayer = {
     // Show connecting notification
     Utils.showNotification('Connecting', 'Connecting to multiplayer server...', 'info');
     
-    // In a real implementation, we would connect to a server via Socket.io
-    // For now, we'll simulate this for demonstration purposes
-    
-    // This would be real code in production:
-    // this.socket = io.connect(this.serverUrl);
-    
+    try {
+      // Initialize actual socket connection
+      this.socket = io.connect(this.serverUrl);
+      
+      // Set up socket events
+      this.socket.on('connect', () => {
+        this.isMultiplayer = true;
+        Utils.showNotification('Connected', 'Connected to multiplayer server!', 'success');
+        
+        // Create player data to send to server
+        const playerData = {
+          name: Store.playerName || 'Player',
+          userId: Store.userEmail,
+          avatar: Store.playerAvatar || 'cyan'
+        };
+        
+        // Send player data to server
+        this.socket.emit('playerJoin', {
+          player: playerData,
+          mode: mode,
+          gameCode: gameCode
+        });
+        
+        if (mode === 'random') {
+          Utils.showNotification('Matchmaking', 'Looking for an opponent...', 'info');
+        } else if (mode === 'host') {
+          Utils.showNotification('Hosting Game', `Game code: ${gameCode}. Waiting for opponent...`, 'info');
+        } else if (mode === 'join') {
+          Utils.showNotification('Joining Game', `Joining game with code: ${gameCode}...`, 'info');
+        }
+      });
+      
+      // Handle match found
+      this.socket.on('matchFound', (data) => {
+        const { localPlayer, remotePlayer } = data;
+        Utils.showNotification('Match Found', `Playing against ${remotePlayer.name}!`, 'success');
+        this.setupMatch(localPlayer, remotePlayer);
+      });
+      
+      // Handle game updates
+      this.socket.on('gameUpdate', (data) => {
+        // Update opponent paddle position
+        if (data.rightPaddleY) {
+          Game.rightPaddle.position.y = data.rightPaddleY;
+        }
+        
+        // Update ball position if server controls it
+        if (data.ballX && data.ballY) {
+          Game.ball.position.x = data.ballX;
+          Game.ball.position.y = data.ballY;
+        }
+      });
+      
+      // Handle game events
+      this.socket.on('gameEvent', (data) => {
+        if (data.type === 'score') {
+          // Update scores
+          Game.leftPaddle.userData.score = data.leftScore;
+          Game.rightPaddle.userData.score = data.rightScore;
+          UI.updateScoreDisplay();
+          
+          // Play score sound
+          Audio.playSoundWithVolume(Audio.sounds.score);
+        } else if (data.type === 'gameOver') {
+          Game.endGame(data.winner);
+        }
+      });
+      
+      // Handle connection errors
+      this.socket.on('error', (error) => {
+        console.error('Socket connection error:', error);
+        Utils.showNotification('Connection Error', 'Failed to connect to multiplayer server.', 'error');
+        this.fallbackToSimulation(mode, gameCode);
+      });
+      
+      // Handle disconnection
+      this.socket.on('disconnect', () => {
+        Utils.showNotification('Disconnected', 'Lost connection to multiplayer server.', 'warning');
+        this.isMultiplayer = false;
+        this.socket = null;
+      });
+      
+    } catch (error) {
+      console.error('Failed to initialize socket connection:', error);
+      Utils.showNotification('Connection Error', 'Could not initialize multiplayer connection.', 'error');
+      
+      // Fall back to simulation mode for demo purposes
+      this.fallbackToSimulation(mode, gameCode);
+    }
+  },
+  
+  /**
+   * Send updates to the server
+   */
+  sendGameUpdates: function() {
+    if (this.socket && this.isMultiplayer && Game.gameState === 'playing') {
+      // Send local paddle position
+      this.socket.emit('playerUpdate', {
+        leftPaddleY: Game.leftPaddle.position.y,
+        timestamp: Date.now()
+      });
+    }
+  },
+  
+  /**
+   * Fall back to simulation mode for demo purposes
+   */
+  fallbackToSimulation: function(mode, gameCode) {
+    console.log('Falling back to simulation mode');
     // Simulate server connection with setTimeout
     setTimeout(() => {
       this.isMultiplayer = true;

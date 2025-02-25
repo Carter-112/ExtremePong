@@ -235,10 +235,18 @@ const Game = {
     }
     
     // Right paddle control with arrow keys
-    if (!this.rightPaddle.userData.isAI) {
+    if (!this.rightPaddle.userData.isAI && !Multiplayer.isMultiplayer) {
       this.rightPaddle.userData.direction = 0;
       if (Input.keys.ArrowUp) this.rightPaddle.userData.direction = 1;
       if (Input.keys.ArrowDown) this.rightPaddle.userData.direction = -1;
+    } else if (!this.rightPaddle.userData.isAI && Multiplayer.isMultiplayer) {
+      // In multiplayer mode, the right paddle is controlled by the remote player
+      // We don't need to do anything here as the position will be updated through socket events
+    }
+    
+    // Send paddle updates to server in multiplayer mode
+    if (Multiplayer.isMultiplayer) {
+      Multiplayer.sendGameUpdates();
     }
   },
   
@@ -369,6 +377,8 @@ const Game = {
     if (this.leftPaddle.userData.score >= Settings.settings.game.maxPoints || 
         this.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
       this.gameState = 'finished';
+      const winner = this.leftPaddle.userData.score >= Settings.settings.game.maxPoints ? 'left' : 'right';
+      this.endGame(winner);
       return;
     }
     
@@ -379,6 +389,7 @@ const Game = {
       if (Date.now() - this.gameOverTime >= 1000 / Settings.settings.game.gameSpeed) {
         this.resetBall();
         this.gameState = 'playing';
+        console.log('Game state changed back to: playing (after reset)');
       }
       return;
     }
@@ -399,5 +410,8 @@ const Game = {
     
     // Update power-ups
     PowerUps.update(deltaTime);
+    
+    // Update UI elements
+    UI.updatePowerUpVisuals();
   }
 };
