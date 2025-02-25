@@ -619,7 +619,7 @@
             </div>
             <div id="join-room-container">
               <label>Join with Code: 
-                <input type="text" id="join-code" placeholder="Enter code" maxlength="6">
+                <input type="text" id="join-code" placeholder="Enter code" maxlength="6" onclick="event.stopPropagation();" onkeydown="event.stopPropagation();">
               </label>
               <button id="join-room" class="settings-btn small-btn">Join</button>
             </div>
@@ -1229,8 +1229,11 @@
       const matchTimeout = Math.random() * 5000 + 3000;
       waitingMessage.style.display = 'block';
       
-      // Store timeout so we can cancel it
-      window.matchmakingTimeout = setTimeout(foundOpponent, matchTimeout);
+      // Make sure we always find an opponent, even with multiple players/accounts
+      window.matchmakingTimeout = setTimeout(function() {
+        // Always successfully find an opponent in this implementation
+        foundOpponent();
+      }, matchTimeout);
     }
     
     // Create a private room

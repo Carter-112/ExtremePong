@@ -117,7 +117,7 @@ const Store = {
     const finalPrice = this.promoActive ? Math.floor(prices[itemId] / 2) : prices[itemId];
     
     // Check if item is already owned
-    if (this.playerItems[itemId]) {
+    if (this.playerItems && this.playerItems[itemId]) {
       Utils.showNotification('Already Owned', 'You already own this item!', 'info');
       return;
     }
@@ -128,57 +128,94 @@ const Store = {
       const confirmPurchase = confirm(`Confirm purchase: ${finalPrice} credits${this.promoActive ? ' (50% OFF!)' : ''}?`);
       
       if (confirmPurchase) {
-        // Deduct credits
-        this.playerCredits -= finalPrice;
-        document.getElementById('playerCredits').textContent = this.playerCredits;
-        
-        // Add item to player's inventory
-        this.playerItems[itemId] = true;
-        
-        // Update player account data
-        if (this.registeredUsers[this.userEmail]) {
-          // Ensure items object exists
-          if (!this.registeredUsers[this.userEmail].items) {
-            this.registeredUsers[this.userEmail].items = {};
+        try {
+          // Initialize player items if needed
+          if (!this.playerItems) {
+            this.playerItems = {};
           }
           
-          // Update item in account
-          this.registeredUsers[this.userEmail].items[itemId] = true;
-          
-          // Update credits in account
-          this.registeredUsers[this.userEmail].credits = this.playerCredits;
-          
-          // Add transaction record
-          if (!this.registeredUsers[this.userEmail].transactions) {
-            this.registeredUsers[this.userEmail].transactions = [];
+          // Deduct credits
+          this.playerCredits -= finalPrice;
+          if (document.getElementById('playerCredits')) {
+            document.getElementById('playerCredits').textContent = this.playerCredits;
           }
           
-          this.registeredUsers[this.userEmail].transactions.push({
-            type: 'item_purchase',
-            itemId: itemId,
-            cost: finalPrice,
-            discount: this.promoActive,
-            date: new Date().toISOString()
-          });
-        }
-        
-        // Play purchase sound
-        const purchaseSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3');
-        purchaseSound.volume = 0.5;
-        purchaseSound.play().catch(e => console.warn('Could not play purchase sound', e));
-        
-        // Show success notification
-        Utils.showNotification('Purchase Successful', `You have purchased the item for ${finalPrice} credits${this.promoActive ? ' (50% OFF!)' : ''}!`, 'success');
-        
-        // Save player data IMMEDIATELY to persist across refreshes
-        this.savePlayerData();
-        
-        // Update UI to show owned item
-        const button = document.querySelector(`button[onclick="Store.purchaseItem('${itemId}')"]`);
-        if (button) {
-          button.textContent = 'Owned';
-          button.disabled = true;
-          button.classList.add('active');
+          // Add item to player's inventory
+          this.playerItems[itemId] = true;
+          
+          // Ensure registeredUsers exists
+          if (!this.registeredUsers) {
+            this.registeredUsers = {};
+          }
+          
+          // Update player account data - this is critical for persistence
+          if (this.isLoggedIn && this.userEmail && this.registeredUsers[this.userEmail]) {
+            // Ensure items object exists
+            if (!this.registeredUsers[this.userEmail].items) {
+              this.registeredUsers[this.userEmail].items = {};
+            }
+            
+            // Update item in account - MOST IMPORTANT STEP
+            this.registeredUsers[this.userEmail].items[itemId] = true;
+            
+            // Update credits in account - ALSO CRITICAL
+            this.registeredUsers[this.userEmail].credits = this.playerCredits;
+            
+            // Add transaction record
+            if (!this.registeredUsers[this.userEmail].transactions) {
+              this.registeredUsers[this.userEmail].transactions = [];
+            }
+            
+            this.registeredUsers[this.userEmail].transactions.push({
+              type: 'item_purchase',
+              itemId: itemId,
+              cost: finalPrice,
+              discount: this.promoActive,
+              date: new Date().toISOString()
+            });
+            
+            console.log('Updated user account with purchase:', itemId);
+            console.log('New credit balance:', this.playerCredits);
+            console.log('Items owned:', Object.keys(this.registeredUsers[this.userEmail].items));
+          }
+          
+          // Play purchase sound
+          const purchaseSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3');
+          purchaseSound.volume = 0.5;
+          purchaseSound.play().catch(e => console.warn('Could not play purchase sound', e));
+          
+          // Show success notification
+          Utils.showNotification('Purchase Successful', `You have purchased the item for ${finalPrice} credits${this.promoActive ? ' (50% OFF!)' : ''}!`, 'success');
+          
+          // Save player data IMMEDIATELY to persist across refreshes
+          // Call this multiple times to ensure it's saved
+          this.savePlayerData();
+          
+          // Extra save for redundancy 
+          setTimeout(() => {
+            // Verify data was saved correctly
+            if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
+              console.log('Verifying saved data:', this.registeredUsers[this.userEmail].items);
+              
+              // Ensure the item is still in the account
+              if (!this.registeredUsers[this.userEmail].items[itemId]) {
+                console.warn('Item not properly saved, fixing...');
+                this.registeredUsers[this.userEmail].items[itemId] = true;
+                this.savePlayerData();
+              }
+            }
+          }, 100);
+          
+          // Update UI to show owned item
+          const button = document.querySelector(`button[onclick="Store.purchaseItem('${itemId}')"]`);
+          if (button) {
+            button.textContent = 'Owned';
+            button.disabled = true;
+            button.classList.add('active');
+          }
+        } catch (error) {
+          console.error('Error during purchase:', error);
+          Utils.showNotification('Purchase Error', 'There was an error processing your purchase. Please try again.', 'error');
         }
       }
     } else {
@@ -191,55 +228,65 @@ const Store = {
    * Save player data to localStorage
    */
   savePlayerData: function() {
-    // IMPORTANT: Make sure player data is properly synced with registered users first
-    if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
-      // Update player data in registered users
-      this.registeredUsers[this.userEmail].credits = this.playerCredits;
-      
-      // Make sure items are properly saved
-      if (!this.registeredUsers[this.userEmail].items) {
-        this.registeredUsers[this.userEmail].items = {};
+    try {
+      // Double-check account items are initialized
+      if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
+        if (!this.registeredUsers[this.userEmail].items) {
+          this.registeredUsers[this.userEmail].items = {};
+        }
       }
       
-      // Merge items - this ensures all items are saved to account
-      Object.keys(this.playerItems).forEach(key => {
-        if (this.playerItems[key]) {
-          this.registeredUsers[this.userEmail].items[key] = true;
+      // IMPORTANT: Make sure player data is properly synced with registered users first
+      if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
+        // Update player data in registered users (critical fields)
+        this.registeredUsers[this.userEmail].credits = this.playerCredits;
+        
+        // Ensure player items are initialized
+        if (!this.playerItems) {
+          this.playerItems = {};
         }
-      });
+        
+        // Merge items - this ensures all items are saved to account
+        Object.keys(this.playerItems).forEach(key => {
+          if (this.playerItems[key]) {
+            this.registeredUsers[this.userEmail].items[key] = true;
+          }
+        });
+        
+        // Also ensure account items are in player items
+        Object.keys(this.registeredUsers[this.userEmail].items).forEach(key => {
+          if (this.registeredUsers[this.userEmail].items[key]) {
+            this.playerItems[key] = true;
+          }
+        });
+      }
       
-      // Also ensure account items are in player items
-      Object.keys(this.registeredUsers[this.userEmail].items).forEach(key => {
-        if (this.registeredUsers[this.userEmail].items[key]) {
-          this.playerItems[key] = true;
-        }
-      });
+      // Then save player data to localStorage
+      const playerData = {
+        name: this.playerName,
+        avatar: this.playerAvatar,
+        credits: this.playerCredits,
+        items: this.playerItems,
+        email: this.userEmail,
+        isLoggedIn: this.isLoggedIn,
+        paypalEmail: this.paypalEmail,
+        paypalConnected: this.paypalConnected,
+        stats: this.userStats
+      };
+      
+      // Save both the registeredUsers and playerData objects
+      localStorage.setItem('cosmicPongPlayerData', JSON.stringify(playerData));
+      localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
+      
+      // Force localStorage sync
+      localStorage.setItem('lastSaveTimestamp', Date.now().toString());
+      
+      // Log what was saved for debugging
+      console.log('Saved player items:', Object.keys(this.playerItems));
+      console.log('Credits:', this.playerCredits);
+    } catch (error) {
+      console.error('Error saving player data:', error);
     }
-    
-    // Then save player data to localStorage
-    const playerData = {
-      name: this.playerName,
-      avatar: this.playerAvatar,
-      credits: this.playerCredits,
-      items: this.playerItems,
-      email: this.userEmail,
-      isLoggedIn: this.isLoggedIn,
-      paypalEmail: this.paypalEmail,
-      paypalConnected: this.paypalConnected,
-      stats: this.userStats
-    };
-    
-    localStorage.setItem('cosmicPongPlayerData', JSON.stringify(playerData));
-    
-    // Also save registered users
-    localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
-    
-    // Log what was saved for debugging
-    console.log('Saved player items:', Object.keys(this.playerItems));
-    console.log('Credits:', this.playerCredits);
-    
-    // In a real implementation, we would also send data to the server
-    // this.syncWithServer();
   },
   
   /**
