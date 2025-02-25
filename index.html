@@ -110,7 +110,6 @@
       <div class="btn-group">
         <button class="cyber-button" id="playGameButton" onclick="startGame()">PLAY GAME</button>
         <button class="cyber-button" onclick="UI.showPanel('settingsPanel')">SETTINGS</button>
-        <button class="cyber-button secondary" onclick="UI.showPanel('multiplayerPanel')">MULTIPLAYER</button>
         <button class="cyber-button secondary" onclick="UI.showPanel('storePanel')">STORE</button>
         <button class="cyber-button secondary" onclick="UI.showPanel('leaderboardPanel')">LEADERBOARD</button>
         <button class="cyber-button warning" onclick="UI.showPanel('howToPlayPanel')">HOW TO PLAY</button>
@@ -457,8 +456,8 @@
     </div>
   </div>
   
-  <!-- Multiplayer Panel -->
-  <div id="multiplayerPanel" class="ui-panel" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:800px; max-height:80vh;">
+  <!-- Multiplayer Panel (Hidden - Now integrated with game) -->
+  <div id="multiplayerPanel" class="ui-panel" style="display:none; visibility: hidden; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:800px; max-height:80vh;">
     <div class="panel-header">
       <h2 class="panel-title">Multiplayer</h2>
       <button class="cyber-button" onclick="UI.hidePanel('multiplayerPanel')" style="min-width: auto; padding: 5px 10px;">
@@ -837,6 +836,95 @@
   <script src="js/deployment.js"></script>
   <script src="js/main.js"></script>
   
+  <!-- Leaderboard Panel (linked to online play) -->
+  <div id="leaderboardPanel" class="ui-panel" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:600px; max-height:80vh;">
+    <div class="panel-header">
+      <h2 class="panel-title">Global Leaderboard</h2>
+      <button class="cyber-button" onclick="UI.hidePanel('leaderboardPanel')" style="min-width: auto; padding: 5px 10px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="settings-section">
+        <div class="settings-row" style="justify-content: space-between;">
+          <h3 style="margin: 0;">Top Players</h3>
+          <div>
+            <button class="cyber-button small" onclick="refreshLeaderboard()">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+        </div>
+        
+        <div class="player-list" id="leaderboardList">
+          <!-- Top players will be listed here -->
+          <div class="player-item">
+            <div class="rank">1</div>
+            <div class="player-avatar" style="background:var(--primary);">M</div>
+            <div class="player-info">
+              <div class="player-name">MasterPaddle</div>
+              <div class="player-status">Last played: 2 hours ago</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 578</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 942</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 87%</div>
+            </div>
+          </div>
+          
+          <div class="player-item">
+            <div class="rank">2</div>
+            <div class="player-avatar" style="background:var(--secondary);">P</div>
+            <div class="player-info">
+              <div class="player-name">PongLegend</div>
+              <div class="player-status">Last played: Today</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 492</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 723</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 82%</div>
+            </div>
+          </div>
+          
+          <div class="player-item">
+            <div class="rank">3</div>
+            <div class="player-avatar" style="background:var(--tertiary);">R</div>
+            <div class="player-info">
+              <div class="player-name">RallyKing</div>
+              <div class="player-status">Last played: 5 hours ago</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 421</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 698</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 79%</div>
+            </div>
+          </div>
+          
+          <div class="player-item you">
+            <div class="rank">42</div>
+            <div class="player-avatar" style="background:var(--primary);">Y</div>
+            <div class="player-info">
+              <div class="player-name">YOU</div>
+              <div class="player-status">Last played: Just now</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 18</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 25</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 72%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Season Rankings</h3>
+        <p>Season 1 ends in 12 days, 8 hours. Earn rewards based on your rank!</p>
+        <div class="btn-group">
+          <button class="cyber-button secondary" onclick="launchGame('online')">Play Ranked Match</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Game launcher script -->
   <script>
     // Function to launch the game with selected mode
@@ -886,6 +974,195 @@
     function launchGame(mode) {
       window.location.href = `pong_game.html#${mode}`;
     }
+    
+    // Simulate refreshing the leaderboard
+    function refreshLeaderboard() {
+      // Show loading indicator
+      const leaderboardList = document.getElementById('leaderboardList');
+      leaderboardList.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading leaderboard data...</div>';
+      
+      // Simulate network delay
+      setTimeout(() => {
+        // Restore the original content
+        leaderboardList.innerHTML = `
+          <div class="player-item">
+            <div class="rank">1</div>
+            <div class="player-avatar" style="background:var(--primary);">M</div>
+            <div class="player-info">
+              <div class="player-name">MasterPaddle</div>
+              <div class="player-status">Last played: 2 hours ago</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 578</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 942</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 87%</div>
+            </div>
+          </div>
+          
+          <div class="player-item">
+            <div class="rank">2</div>
+            <div class="player-avatar" style="background:var(--secondary);">P</div>
+            <div class="player-info">
+              <div class="player-name">PongLegend</div>
+              <div class="player-status">Last played: Today</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 492</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 723</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 82%</div>
+            </div>
+          </div>
+          
+          <div class="player-item">
+            <div class="rank">3</div>
+            <div class="player-avatar" style="background:var(--tertiary);">R</div>
+            <div class="player-info">
+              <div class="player-name">RallyKing</div>
+              <div class="player-status">Last played: 5 hours ago</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 421</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 698</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 79%</div>
+            </div>
+          </div>
+          
+          <div class="player-item you">
+            <div class="rank">42</div>
+            <div class="player-avatar" style="background:var(--primary);">Y</div>
+            <div class="player-info">
+              <div class="player-name">YOU</div>
+              <div class="player-status">Last played: Just now</div>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><i class="fas fa-trophy"></i> 18</div>
+              <div class="player-stat"><i class="fas fa-gamepad"></i> 25</div>
+              <div class="player-stat"><i class="fas fa-percentage"></i> 72%</div>
+            </div>
+          </div>
+        `;
+      }, 1200);
+    }
   </script>
+  
+  <style>
+    /* Leaderboard styles */
+    .player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .player-item {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 10, 30, 0.7);
+      border: 1px solid rgba(0, 252, 255, 0.3);
+      border-radius: 10px;
+      padding: 10px 15px;
+      gap: 15px;
+    }
+    
+    .player-item.you {
+      background: rgba(0, 40, 80, 0.7);
+      border: 2px solid var(--primary);
+      box-shadow: 0 0 10px rgba(0, 252, 255, 0.5);
+    }
+    
+    .rank {
+      font-size: 24px;
+      font-weight: bold;
+      min-width: 30px;
+      color: var(--primary);
+      text-align: center;
+    }
+    
+    .player-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 20px;
+    }
+    
+    .player-info {
+      flex: 1;
+    }
+    
+    .player-name {
+      font-weight: bold;
+    }
+    
+    .player-status {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    .player-stats {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .player-stat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .player-stat i {
+      color: var(--tertiary);
+    }
+    
+    button.small {
+      font-size: 12px;
+      padding: 5px 10px;
+      min-width: auto;
+    }
+    
+    @media (max-width: 600px) {
+      .player-stats {
+        flex-direction: column;
+        gap: 5px;
+      }
+      
+      .player-item {
+        flex-wrap: wrap;
+        padding: 8px 10px;
+      }
+      
+      .rank {
+        font-size: 18px;
+        min-width: 20px;
+      }
+      
+      .player-avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 14px;
+      }
+      
+      .player-name {
+        font-size: 14px;
+      }
+      
+      .player-status {
+        font-size: 10px;
+      }
+      
+      .player-stat {
+        font-size: 12px;
+      }
+      
+      #leaderboardPanel {
+        width: 95% !important;
+        max-width: 400px;
+      }
+    }
+  </style>
 </body>
 </html>
