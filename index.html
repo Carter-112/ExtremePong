@@ -126,9 +126,8 @@
       
       <div class="controls-help">
         <h4>Controls:</h4>
-        <p>Left Paddle: <span class="key">W</span> (up) and <span class="key">S</span> (down)</p>
-        <p>Right Paddle: <span class="key">↑</span> (up) and <span class="key">↓</span> (down)</p>
-        <p>Pause Game: <span class="key">ESC</span> or <span class="key">P</span></p>
+        <p>Move Paddle: <span class="key">W</span> (up) and <span class="key">S</span> (down)</p>
+        <p>Pause Game: <span class="key">P</span></p>
       </div>
     </div>
   </div>
@@ -856,70 +855,22 @@
         </div>
         
         <div class="player-list" id="leaderboardList">
-          <!-- Top players will be listed here -->
-          <div class="player-item">
-            <div class="rank">1</div>
-            <div class="player-avatar" style="background:var(--primary);">M</div>
-            <div class="player-info">
-              <div class="player-name">MasterPaddle</div>
-              <div class="player-status">Last played: 2 hours ago</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 578</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 942</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 87%</div>
-            </div>
-          </div>
-          
-          <div class="player-item">
-            <div class="rank">2</div>
-            <div class="player-avatar" style="background:var(--secondary);">P</div>
-            <div class="player-info">
-              <div class="player-name">PongLegend</div>
-              <div class="player-status">Last played: Today</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 492</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 723</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 82%</div>
-            </div>
-          </div>
-          
-          <div class="player-item">
-            <div class="rank">3</div>
-            <div class="player-avatar" style="background:var(--tertiary);">R</div>
-            <div class="player-info">
-              <div class="player-name">RallyKing</div>
-              <div class="player-status">Last played: 5 hours ago</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 421</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 698</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 79%</div>
-            </div>
-          </div>
-          
-          <div class="player-item you">
-            <div class="rank">42</div>
-            <div class="player-avatar" style="background:var(--primary);">Y</div>
-            <div class="player-info">
-              <div class="player-name">YOU</div>
-              <div class="player-status">Last played: Just now</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 18</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 25</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 72%</div>
+          <div style="text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.6);">
+            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+            <h3>No Players Yet</h3>
+            <p>Be the first to play online and get on the leaderboard!</p>
+            <div style="margin-top: 20px;">
+              <button class="cyber-button" onclick="launchGame('online')">Start Playing Now</button>
             </div>
           </div>
         </div>
       </div>
       
       <div class="settings-section">
-        <h3>Season Rankings</h3>
-        <p>Season 1 ends in 12 days, 8 hours. Earn rewards based on your rank!</p>
+        <h3>Coming Soon</h3>
+        <p>Competitive seasons will begin once enough players join. Play now to be ranked among the first!</p>
         <div class="btn-group">
-          <button class="cyber-button secondary" onclick="launchGame('online')">Play Ranked Match</button>
+          <button class="cyber-button secondary" onclick="launchGame('online')">Play Online</button>
         </div>
       </div>
     </div>
@@ -931,6 +882,7 @@
     function startGame() {
       // Show game mode selection panel
       const gameModePanel = document.createElement('div');
+      gameModePanel.id = 'gameModePanel';
       gameModePanel.className = 'ui-panel';
       gameModePanel.style.position = 'absolute';
       gameModePanel.style.top = '50%';
@@ -942,7 +894,7 @@
       gameModePanel.innerHTML = `
         <div class="panel-header">
           <h2 class="panel-title">Select Game Mode</h2>
-          <button class="cyber-button" onclick="hideGameModePanel()" style="min-width: auto; padding: 5px 10px;">
+          <button class="cyber-button close-btn" style="min-width: auto; padding: 5px 10px;">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -960,6 +912,10 @@
       `;
       
       document.body.appendChild(gameModePanel);
+      
+      // Add event listener to close button
+      const closeBtn = gameModePanel.querySelector('.close-btn');
+      closeBtn.addEventListener('click', hideGameModePanel);
     }
     
     // Hide the game mode panel
@@ -968,6 +924,9 @@
       if (panel) {
         panel.remove();
       }
+      
+      // Reset any state if needed
+      console.log("Closing game mode panel");
     }
     
     // Launch the game with the selected mode
@@ -975,7 +934,7 @@
       window.location.href = `pong_game.html#${mode}`;
     }
     
-    // Simulate refreshing the leaderboard
+    // Refresh the leaderboard with real data
     function refreshLeaderboard() {
       // Show loading indicator
       const leaderboardList = document.getElementById('leaderboardList');
@@ -983,61 +942,14 @@
       
       // Simulate network delay
       setTimeout(() => {
-        // Restore the original content
+        // Show empty state - no players yet
         leaderboardList.innerHTML = `
-          <div class="player-item">
-            <div class="rank">1</div>
-            <div class="player-avatar" style="background:var(--primary);">M</div>
-            <div class="player-info">
-              <div class="player-name">MasterPaddle</div>
-              <div class="player-status">Last played: 2 hours ago</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 578</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 942</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 87%</div>
-            </div>
-          </div>
-          
-          <div class="player-item">
-            <div class="rank">2</div>
-            <div class="player-avatar" style="background:var(--secondary);">P</div>
-            <div class="player-info">
-              <div class="player-name">PongLegend</div>
-              <div class="player-status">Last played: Today</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 492</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 723</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 82%</div>
-            </div>
-          </div>
-          
-          <div class="player-item">
-            <div class="rank">3</div>
-            <div class="player-avatar" style="background:var(--tertiary);">R</div>
-            <div class="player-info">
-              <div class="player-name">RallyKing</div>
-              <div class="player-status">Last played: 5 hours ago</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 421</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 698</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 79%</div>
-            </div>
-          </div>
-          
-          <div class="player-item you">
-            <div class="rank">42</div>
-            <div class="player-avatar" style="background:var(--primary);">Y</div>
-            <div class="player-info">
-              <div class="player-name">YOU</div>
-              <div class="player-status">Last played: Just now</div>
-            </div>
-            <div class="player-stats">
-              <div class="player-stat"><i class="fas fa-trophy"></i> 18</div>
-              <div class="player-stat"><i class="fas fa-gamepad"></i> 25</div>
-              <div class="player-stat"><i class="fas fa-percentage"></i> 72%</div>
+          <div style="text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.6);">
+            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+            <h3>No Players Yet</h3>
+            <p>Be the first to play online and get on the leaderboard!</p>
+            <div style="margin-top: 20px;">
+              <button class="cyber-button" onclick="launchGame('online')">Start Playing Now</button>
             </div>
           </div>
         `;
