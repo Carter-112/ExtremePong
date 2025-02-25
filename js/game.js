@@ -11,6 +11,9 @@ const Game = {
   currentGameMode: 'ai-vs-ai',
   gameOverTime: 0,
   winner: null,
+  isLoggedIn: false,
+  currentUser: null,
+  
   
   /**
    * Start the game

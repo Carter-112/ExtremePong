@@ -61,14 +61,19 @@ function animate(currentTime = 0) {
     case 'playing':
       // Update game logic
       Game.update(deltaTime);
+      // Update 2.5D pop-out effects
+      Renderer.updatePopOutEffects(deltaTime);
       break;
       
     case 'paused':
       // Just render the current state
+      // Still update pop-out effects for visual appeal
+      Renderer.updatePopOutEffects(deltaTime);
       break;
       
     case 'finished':
       // Game over animations
+      Renderer.updatePopOutEffects(deltaTime);
       break;
   }
   

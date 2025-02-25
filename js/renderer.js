@@ -8,6 +8,8 @@ const Renderer = {
   
   // Game objects
   particles: null,  // Ball trail particles
+  effectComposer: null, // Postprocessing
+  popOutElements: [], // Elements that pop out in 2.5D
   
   /**
    * Initialize the renderer
@@ -21,11 +23,19 @@ const Renderer = {
     this.scene.background = new THREE.Color(0x000033);
     this.scene.fog = new THREE.FogExp2(0x000033, 0.01);
     
-    // Create camera
+    // Create camera - using orthographic for 2.5D effect
     const aspect = window.innerWidth / window.innerHeight;
-    this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-    this.camera.position.z = 60;
-    this.camera.position.y = 20;
+    const frustumSize = 100;
+    this.camera = new THREE.OrthographicCamera(
+      frustumSize * aspect / -2, 
+      frustumSize * aspect / 2, 
+      frustumSize / 2, 
+      frustumSize / -2, 
+      0.1, 
+      1000
+    );
+    this.camera.position.z = 40;
+    this.camera.position.y = 10;
     this.camera.lookAt(0, 0, 0);
     
     // Create renderer
@@ -36,9 +46,19 @@ const Renderer = {
     
     // Handle window resize
     window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+      const aspect = window.innerWidth / window.innerHeight;
+      const frustumSize = 100;
+      
+      this.camera.left = frustumSize * aspect / -2;
+      this.camera.right = frustumSize * aspect / 2;
+      this.camera.top = frustumSize / 2;
+      this.camera.bottom = frustumSize / -2;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      
+      if (this.effectComposer) {
+        this.effectComposer.setSize(window.innerWidth, window.innerHeight);
+      }
     });
     
     // Create game scene group
@@ -46,7 +66,7 @@ const Renderer = {
     this.scene.add(this.gameScene);
     
     // Create ambient light
-    const ambientLight = new THREE.AmbientLight(0x333344, 0.5);
+    const ambientLight = new THREE.AmbientLight(0x333344, 0.7);
     this.scene.add(ambientLight);
     
     // Create directional light
@@ -67,8 +87,54 @@ const Renderer = {
     // Create the starfield background
     this.createStarfield();
     
+    // Initialize post-processing effects for 2.5D pop-out
+    this.initPostProcessing();
+    
     // Position game scene
-    this.gameScene.position.y = -10;
+    this.gameScene.position.y = -5;
+    this.gameScene.rotation.x = -0.15; // Slight tilt for 2.5D effect
+  },
+  
+  /**
+   * Initialize post-processing effects for 2.5D pop-out visuals
+   */
+  initPostProcessing: function() {
+    // Set up effect composer for post-processing
+    this.effectComposer = new THREE.EffectComposer(this.renderer);
+    
+    // Add render pass
+    const renderPass = new THREE.RenderPass(this.scene, this.camera);
+    this.effectComposer.addPass(renderPass);
+    
+    // Add bloom pass for glow effects
+    if (Settings.settings.graphics.enableBloom) {
+      const bloomPass = new THREE.UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        1.5,  // strength
+        0.4,  // radius
+        0.85   // threshold
+      );
+      this.effectComposer.addPass(bloomPass);
+    }
+    
+    // Add outline pass for pop-out effect
+    const outlinePass = new THREE.OutlinePass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      this.scene,
+      this.camera
+    );
+    outlinePass.edgeStrength = 3.0;
+    outlinePass.edgeGlow = 0.7;
+    outlinePass.edgeThickness = 1.0;
+    outlinePass.pulsePeriod = 0;
+    outlinePass.visibleEdgeColor.set(0x00ffff);
+    outlinePass.hiddenEdgeColor.set(0xff00ff);
+    this.effectComposer.addPass(outlinePass);
+    
+    // Final pass with film grain for arcade effect
+    const filmPass = new THREE.FilmPass(0.35, 0.025, 648, false);
+    filmPass.renderToScreen = true;
+    this.effectComposer.addPass(filmPass);
   },
   
   /**
@@ -173,15 +239,28 @@ const Renderer = {
   },
   
   /**
-   * Create paddles
+   * Create paddles with 2.5D effect
    */
   createPaddles: function() {
-    // Create paddle geometry
-    const paddleGeometry = new THREE.BoxGeometry(
-      Constants.PADDLE_WIDTH, 
-      Constants.PADDLE_HEIGHT, 
-      Constants.PADDLE_DEPTH
-    );
+    // Create paddle geometry - use extruded geometry for 2.5D effect
+    const paddleShape = new THREE.Shape();
+    paddleShape.moveTo(-Constants.PADDLE_WIDTH/2, -Constants.PADDLE_HEIGHT/2);
+    paddleShape.lineTo(Constants.PADDLE_WIDTH/2, -Constants.PADDLE_HEIGHT/2);
+    paddleShape.lineTo(Constants.PADDLE_WIDTH/2, Constants.PADDLE_HEIGHT/2);
+    paddleShape.lineTo(-Constants.PADDLE_WIDTH/2, Constants.PADDLE_HEIGHT/2);
+    paddleShape.lineTo(-Constants.PADDLE_WIDTH/2, -Constants.PADDLE_HEIGHT/2);
+    
+    const extrudeSettings = {
+      steps: 1,
+      depth: Constants.PADDLE_DEPTH,
+      bevelEnabled: true,
+      bevelThickness: 0.5,
+      bevelSize: 0.5,
+      bevelOffset: 0,
+      bevelSegments: 3
+    };
+    
+    const paddleGeometry = new THREE.ExtrudeGeometry(paddleShape, extrudeSettings);
     
     // Create left paddle with glow effect
     const leftPaddleMaterial = new THREE.MeshPhongMaterial({ 
@@ -194,7 +273,7 @@ const Renderer = {
     });
     
     Game.leftPaddle = new THREE.Mesh(paddleGeometry, leftPaddleMaterial);
-    Game.leftPaddle.position.set(-Constants.FIELD_WIDTH / 2 + 3, 0, 0);
+    Game.leftPaddle.position.set(-Constants.FIELD_WIDTH / 2 + 3, 0, 2); // Slightly forward for pop-out effect
     Game.leftPaddle.castShadow = Settings.settings.graphics.enableShadows;
     Game.leftPaddle.receiveShadow = Settings.settings.graphics.enableShadows;
     Game.leftPaddle.userData = {
@@ -206,9 +285,11 @@ const Renderer = {
       difficulty: Settings.settings.ai.leftDifficulty,
       activePowerUps: [],
       isFrozen: false,
-      frozenUntil: 0
+      frozenUntil: 0,
+      isPopOut: true // Flag for pop-out effect
     };
     this.gameScene.add(Game.leftPaddle);
+    this.popOutElements.push(Game.leftPaddle); // Add to pop-out elements
     
     // Create right paddle with glow effect
     const rightPaddleMaterial = new THREE.MeshPhongMaterial({ 
@@ -221,7 +302,7 @@ const Renderer = {
     });
     
     Game.rightPaddle = new THREE.Mesh(paddleGeometry, rightPaddleMaterial);
-    Game.rightPaddle.position.set(Constants.FIELD_WIDTH / 2 - 3, 0, 0);
+    Game.rightPaddle.position.set(Constants.FIELD_WIDTH / 2 - 3, 0, 2); // Slightly forward for pop-out effect
     Game.rightPaddle.castShadow = Settings.settings.graphics.enableShadows;
     Game.rightPaddle.receiveShadow = Settings.settings.graphics.enableShadows;
     Game.rightPaddle.userData = {
@@ -233,33 +314,35 @@ const Renderer = {
       difficulty: Settings.settings.ai.rightDifficulty,
       activePowerUps: [],
       isFrozen: false,
-      frozenUntil: 0
+      frozenUntil: 0,
+      isPopOut: true // Flag for pop-out effect
     };
     this.gameScene.add(Game.rightPaddle);
+    this.popOutElements.push(Game.rightPaddle); // Add to pop-out elements
   },
   
   /**
-   * Create the ball
+   * Create the ball with 2.5D pop-out effect
    */
   createBall: function() {
-    // Create ball geometry
-    const ballGeometry = new THREE.SphereGeometry(
-      Constants.BALL_RADIUS, 
-      Constants.BALL_SEGMENTS, 
-      Constants.BALL_SEGMENTS
+    // Create ball geometry - use icosahedron for more detailed 3D look
+    const ballGeometry = new THREE.IcosahedronGeometry(
+      Constants.BALL_RADIUS,
+      2 // Subdivision level for more detailed sphere
     );
     
     // Create ball material with glow effect
     const ballMaterial = new THREE.MeshPhongMaterial({ 
       color: 0xffffff,
       emissive: 0xffffaa,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.7,
       transparent: true,
       opacity: 0.9,
-      shininess: 80
+      shininess: 100
     });
     
     Game.ball = new THREE.Mesh(ballGeometry, ballMaterial);
+    Game.ball.position.z = 4; // Position in front for pop-out effect
     Game.ball.castShadow = Settings.settings.graphics.enableShadows;
     Game.ball.receiveShadow = Settings.settings.graphics.enableShadows;
     Game.ball.userData = {
@@ -267,13 +350,61 @@ const Renderer = {
       baseSpeed: Settings.settings.game.baseBallSpeed,
       speed: Settings.settings.game.baseBallSpeed,
       isGhost: false,
-      ghostOpacity: 1
+      ghostOpacity: 1,
+      isPopOut: true // Flag for pop-out effect
     };
     this.gameScene.add(Game.ball);
+    this.popOutElements.push(Game.ball); // Add to pop-out elements
+    
+    // Create ball halo for enhanced pop-out effect
+    const haloGeometry = new THREE.RingGeometry(
+      Constants.BALL_RADIUS * 1.2,
+      Constants.BALL_RADIUS * 1.6,
+      32
+    );
+    const haloMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffaa,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide
+    });
+    
+    Game.ballHalo = new THREE.Mesh(haloGeometry, haloMaterial);
+    Game.ballHalo.position.z = 3.9; // Just behind the ball
+    Game.ball.add(Game.ballHalo);
+    Game.ballHalo.rotation.x = Math.PI / 2; // Face camera
     
     // Create ball trail if particles are enabled
     if (Settings.settings.graphics.enableParticles) {
       this.createBallTrail();
+    }
+    
+    // Add pulsing animation to ball for extra pop-out effect
+    this.animateBallPopOut();
+  },
+  
+  /**
+   * Add pulsing animation to ball for enhanced pop-out effect
+   */
+  animateBallPopOut: function() {
+    // Use GSAP for smooth animation
+    TweenMax.to(Game.ball.scale, 0.6, {
+      x: 1.1,
+      y: 1.1,
+      z: 1.1,
+      repeat: -1,
+      yoyo: true,
+      ease: Power1.easeInOut
+    });
+    
+    // Animate halo opacity
+    if (Game.ballHalo) {
+      TweenMax.to(Game.ballHalo.material, 0.8, {
+        opacity: 0.6,
+        repeat: -1,
+        yoyo: true,
+        ease: Power1.easeInOut
+      });
     }
   },
   
@@ -381,9 +512,200 @@ const Renderer = {
   },
   
   /**
-   * Render the scene
+   * Update pop-out elements
+   * @param {number} deltaTime - Time since last frame
+   */
+  updatePopOutEffects: function(deltaTime) {
+    // Animate pop-out elements
+    this.popOutElements.forEach(element => {
+      if (element === Game.ball) {
+        // Ball is already animated in animateBallPopOut
+        return;
+      }
+      
+      // For power-ups, make them float and rotate
+      if (element.userData && element.userData.isPowerUp) {
+        element.rotation.y += deltaTime * 2;
+        element.position.y = element.userData.baseY + Math.sin(Date.now() * 0.003) * 0.5;
+      }
+      
+      // For paddles when hit, add temporary pop-out effect
+      if ((element === Game.leftPaddle || element === Game.rightPaddle) && 
+          element.userData && element.userData.justHit) {
+        
+        element.userData.hitAnimTime = (element.userData.hitAnimTime || 0) + deltaTime;
+        
+        // Pop out effect lasts 0.3 seconds
+        if (element.userData.hitAnimTime < 0.3) {
+          const scale = 1 + Math.sin(element.userData.hitAnimTime * Math.PI / 0.3) * 0.2;
+          element.scale.z = scale;
+          element.position.z = 2 + (scale - 1) * 2;
+        } else {
+          element.scale.z = 1;
+          element.position.z = 2;
+          element.userData.justHit = false;
+          element.userData.hitAnimTime = 0;
+        }
+      }
+    });
+    
+    // Make power-ups pop out more when player approaches them
+    PowerUps.activePowerUps.forEach(powerUp => {
+      if (!powerUp.mesh) return;
+      
+      // Calculate distance to ball
+      const distToBall = powerUp.mesh.position.distanceTo(Game.ball.position);
+      
+      if (distToBall < 10) {
+        // Scale up as ball gets closer
+        const scale = 1 + (1 - distToBall / 10) * 0.5;
+        powerUp.mesh.scale.set(scale, scale, scale);
+        
+        // Increase glow intensity
+        if (powerUp.glow) {
+          powerUp.glow.material.opacity = 0.7 * (1 - distToBall / 10);
+        }
+      } else {
+        powerUp.mesh.scale.set(1, 1, 1);
+        if (powerUp.glow) {
+          powerUp.glow.material.opacity = 0.3;
+        }
+      }
+    });
+  },
+  
+  /**
+   * Trigger hit animation for paddle
+   * @param {Object} paddle - The paddle that was hit
+   */
+  triggerPaddleHitAnimation: function(paddle) {
+    if (!paddle) return;
+    
+    paddle.userData.justHit = true;
+    paddle.userData.hitAnimTime = 0;
+    
+    // Create hit splash effect
+    if (Settings.settings.graphics.enableParticles) {
+      this.createHitSplash(paddle.position);
+    }
+    
+    // Create camera shake effect
+    this.createCameraShake();
+  },
+  
+  /**
+   * Create hit splash effect
+   * @param {THREE.Vector3} position - Position for the splash effect
+   */
+  createHitSplash: function(position) {
+    const particleCount = 20;
+    const particles = [];
+    
+    for (let i = 0; i < particleCount; i++) {
+      const particle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 8, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.8
+        })
+      );
+      
+      particle.position.copy(position);
+      particle.position.z += 2; // In front of paddle
+      
+      // Random velocity
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 5;
+      particle.userData.velocity = new THREE.Vector3(
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        Math.random() * 2
+      );
+      
+      particle.userData.lifetime = 0;
+      particle.userData.maxLifetime = 0.5 + Math.random() * 0.5;
+      
+      this.gameScene.add(particle);
+      particles.push(particle);
+    }
+    
+    // Animation loop for particles
+    const updateParticles = () => {
+      const toRemove = [];
+      
+      particles.forEach(particle => {
+        particle.position.add(particle.userData.velocity.clone().multiplyScalar(0.016));
+        particle.userData.velocity.multiplyScalar(0.95); // Slow down
+        particle.userData.velocity.z -= 0.1; // Gravity
+        
+        particle.userData.lifetime += 0.016;
+        
+        // Fade out
+        const normalizedLife = particle.userData.lifetime / particle.userData.maxLifetime;
+        particle.material.opacity = 0.8 * (1 - normalizedLife);
+        
+        // Remove when expired
+        if (particle.userData.lifetime >= particle.userData.maxLifetime) {
+          toRemove.push(particle);
+        }
+      });
+      
+      // Remove expired particles
+      toRemove.forEach(particle => {
+        this.gameScene.remove(particle);
+        particles.splice(particles.indexOf(particle), 1);
+      });
+      
+      // Continue animation if particles remain
+      if (particles.length > 0) {
+        requestAnimationFrame(updateParticles);
+      }
+    };
+    
+    requestAnimationFrame(updateParticles);
+  },
+  
+  /**
+   * Create camera shake effect
+   */
+  createCameraShake: function() {
+    const originalPosition = this.camera.position.clone();
+    const duration = 0.3; // seconds
+    const intensity = 0.5;
+    let elapsed = 0;
+    
+    const updateShake = () => {
+      elapsed += 0.016;
+      
+      if (elapsed < duration) {
+        const strength = intensity * (1 - elapsed / duration);
+        
+        this.camera.position.set(
+          originalPosition.x + (Math.random() - 0.5) * strength,
+          originalPosition.y + (Math.random() - 0.5) * strength,
+          originalPosition.z + (Math.random() - 0.5) * strength
+        );
+        
+        requestAnimationFrame(updateShake);
+      } else {
+        // Reset camera position
+        this.camera.position.copy(originalPosition);
+      }
+    };
+    
+    requestAnimationFrame(updateShake);
+  },
+  
+  /**
+   * Render the scene with post-processing effects
    */
   render: function() {
-    this.renderer.render(this.scene, this.camera);
+    // Use effect composer if available
+    if (this.effectComposer && Settings.settings.graphics.enableBloom) {
+      this.effectComposer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 };

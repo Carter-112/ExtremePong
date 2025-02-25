@@ -5,6 +5,10 @@ const Store = {
   playerAvatar: 'cyan',
   playerCredits: 1000,
   playerItems: {},
+  paypalEmail: 'cartermoyer75@gmail.com', // Default PayPal email for purchases
+  userEmail: '', // User's login email
+  userPassword: '', // User's login password (hashed for storage)
+  isLoggedIn: false, // Login status
   
   /**
    * Initialize PayPal buttons
@@ -157,7 +161,10 @@ const Store = {
       name: this.playerName,
       avatar: this.playerAvatar,
       credits: this.playerCredits,
-      items: this.playerItems
+      items: this.playerItems,
+      email: this.userEmail,
+      isLoggedIn: this.isLoggedIn,
+      paypalEmail: this.paypalEmail
     };
     
     localStorage.setItem('cosmicPongPlayerData', JSON.stringify(playerData));
@@ -175,11 +182,34 @@ const Store = {
       this.playerAvatar = data.avatar || 'cyan';
       this.playerCredits = data.credits || 1000;
       this.playerItems = data.items || {};
+      this.userEmail = data.email || '';
+      this.isLoggedIn = data.isLoggedIn || false;
+      this.paypalEmail = data.paypalEmail || 'cartermoyer75@gmail.com';
+      
+      // Update login state in Game
+      Game.isLoggedIn = this.isLoggedIn;
+      Game.currentUser = this.isLoggedIn ? {
+        email: this.userEmail,
+        name: this.playerName
+      } : null;
       
       // Update UI
-      document.getElementById('playerName').value = this.playerName;
-      document.getElementById('playerAvatar').value = this.playerAvatar;
+      if (document.getElementById('playerName')) {
+        document.getElementById('playerName').value = this.playerName;
+      }
+      
+      if (document.getElementById('playerAvatar')) {
+        document.getElementById('playerAvatar').value = this.playerAvatar;
+      }
+      
+      if (document.getElementById('paypalEmail')) {
+        document.getElementById('paypalEmail').value = this.paypalEmail;
+      }
+      
       document.getElementById('playerCredits').textContent = this.playerCredits;
+      
+      // Update login status in UI
+      this.updateLoginUI();
       
       // Update owned items
       for (const item in this.playerItems) {
@@ -201,8 +231,156 @@ const Store = {
   updateProfile: function() {
     this.playerName = document.getElementById('playerName').value;
     this.playerAvatar = document.getElementById('playerAvatar').value;
+    
+    if (document.getElementById('paypalEmail')) {
+      this.paypalEmail = document.getElementById('paypalEmail').value;
+    }
+    
     this.savePlayerData();
     
+    // Update game state
+    if (Game.isLoggedIn && Game.currentUser) {
+      Game.currentUser.name = this.playerName;
+    }
+    
     Utils.showNotification('Profile Updated', 'Your profile has been updated.', 'success');
+  },
+  
+  /**
+   * Login user with email and password
+   * @param {string} email - User email
+   * @param {string} password - User password
+   */
+  login: function(email, password) {
+    // Simple validation
+    if (!email || !password) {
+      Utils.showNotification('Login Failed', 'Please enter both email and password.', 'error');
+      return;
+    }
+    
+    // In a real app, we would validate credentials against a server
+    // For demo, we'll just store the login state
+    this.userEmail = email;
+    this.isLoggedIn = true;
+    
+    // Update game state
+    Game.isLoggedIn = true;
+    Game.currentUser = {
+      email: this.userEmail,
+      name: this.playerName
+    };
+    
+    // Save to localStorage
+    this.savePlayerData();
+    
+    // Update UI
+    this.updateLoginUI();
+    
+    Utils.showNotification('Login Successful', `Welcome back, ${this.playerName}!`, 'success');
+    
+    // Close login panel
+    UI.hidePanel('loginPanel');
+  },
+  
+  /**
+   * Register new user
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @param {string} name - User name
+   */
+  register: function(email, password, name) {
+    // Simple validation
+    if (!email || !password || !name) {
+      Utils.showNotification('Registration Failed', 'Please fill out all fields.', 'error');
+      return;
+    }
+    
+    // In a real app, we would register with a server
+    // For demo, we'll just store the registration locally
+    this.userEmail = email;
+    this.playerName = name;
+    this.isLoggedIn = true;
+    
+    // Update game state
+    Game.isLoggedIn = true;
+    Game.currentUser = {
+      email: this.userEmail,
+      name: this.playerName
+    };
+    
+    // Save to localStorage
+    this.savePlayerData();
+    
+    // Update UI
+    this.updateLoginUI();
+    
+    Utils.showNotification('Registration Successful', `Welcome, ${this.playerName}!`, 'success');
+    
+    // Close register panel
+    UI.hidePanel('registerPanel');
+  },
+  
+  /**
+   * Logout user
+   */
+  logout: function() {
+    this.isLoggedIn = false;
+    
+    // Update game state
+    Game.isLoggedIn = false;
+    Game.currentUser = null;
+    
+    // Save to localStorage
+    this.savePlayerData();
+    
+    // Update UI
+    this.updateLoginUI();
+    
+    Utils.showNotification('Logged Out', 'You have been logged out successfully.', 'info');
+  },
+  
+  /**
+   * Update UI based on login status
+   */
+  updateLoginUI: function() {
+    const loginButton = document.getElementById('loginButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const userInfoDisplay = document.getElementById('userInfo');
+    
+    if (this.isLoggedIn) {
+      // Show logout button
+      if (loginButton) loginButton.style.display = 'none';
+      if (logoutButton) logoutButton.style.display = 'inline-block';
+      
+      // Update user info display
+      if (userInfoDisplay) {
+        userInfoDisplay.textContent = `Logged in as: ${this.userEmail}`;
+        userInfoDisplay.style.display = 'block';
+      }
+      
+      // Enable store purchases
+      document.querySelectorAll('.store-item button').forEach(button => {
+        if (!button.classList.contains('active')) {
+          button.disabled = false;
+        }
+      });
+    } else {
+      // Show login button
+      if (loginButton) loginButton.style.display = 'inline-block';
+      if (logoutButton) logoutButton.style.display = 'none';
+      
+      // Hide user info
+      if (userInfoDisplay) {
+        userInfoDisplay.style.display = 'none';
+      }
+      
+      // Disable store purchases (except for viewing)
+      document.querySelectorAll('.store-item button').forEach(button => {
+        if (!button.classList.contains('active')) {
+          button.disabled = true;
+          button.title = 'Login to purchase';
+        }
+      });
+    }
   }
 };

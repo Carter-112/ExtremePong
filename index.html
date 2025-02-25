@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D COSMIC PONG ARENA</title>
+  <title>2.5D COSMIC PONG ARENA</title>
   
   <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -112,7 +112,7 @@
   <!-- Main Menu -->
   <div id="mainMenu" class="ui-panel">
     <div class="panel-header">
-      <h2 class="panel-title">3D COSMIC PONG ARENA</h2>
+      <h2 class="panel-title">2.5D COSMIC PONG ARENA</h2>
     </div>
     <div class="panel-content">
       <div class="btn-group">
@@ -121,7 +121,15 @@
         <button class="cyber-button secondary" onclick="UI.showPanel('multiplayerPanel')">MULTIPLAYER</button>
         <button class="cyber-button secondary" onclick="UI.showPanel('storePanel')">STORE</button>
         <button class="cyber-button warning" onclick="UI.showPanel('howToPlayPanel')">HOW TO PLAY</button>
-        <button class="cyber-button warning" onclick="Game.deployToGitHub()">DEPLOY GAME</button>
+        <button class="cyber-button warning" onclick="UI.showPanel('profilePanel')">PROFILE</button>
+      </div>
+      
+      <div id="loginStatus">
+        <div id="userInfo" style="display:none; margin-bottom:10px; color:#00fcff;"></div>
+        <div class="btn-group" style="margin-top:10px;">
+          <button id="loginButton" class="cyber-button secondary" onclick="UI.showPanel('loginPanel')">LOGIN</button>
+          <button id="logoutButton" class="cyber-button warning" onclick="Store.logout()" style="display:none;">LOGOUT</button>
+        </div>
       </div>
       
       <div class="controls-help">
@@ -536,6 +544,10 @@
       <div class="settings-section">
         <h3>Your Credits: <span id="playerCredits">1000</span> <i class="fas fa-gem" style="color:var(--tertiary);"></i></h3>
         
+        <div id="store-login-message" style="color:#ffcc00; text-align:center; margin-bottom:20px; display:none;">
+          <i class="fas fa-exclamation-triangle"></i> Please log in to make purchases
+        </div>
+        
         <div class="store-grid">
           <div class="store-item">
             <div class="store-item-image">
@@ -575,6 +587,26 @@
             <p class="store-item-description">Play in new environments: Space Station, Cyberpunk City, and more.</p>
             <div class="store-item-price"><i class="fas fa-gem" class="currency-icon"></i> 450</div>
             <button class="cyber-button" onclick="Store.purchaseItem('arena_themes')">Purchase</button>
+          </div>
+          
+          <div class="store-item">
+            <div class="store-item-image">
+              <i class="fas fa-bolt" style="font-size: 48px; color: #ffcc00;"></i>
+            </div>
+            <h3 class="store-item-title">Power Paddle</h3>
+            <p class="store-item-description">Super-charged paddle with improved response and hit power.</p>
+            <div class="store-item-price"><i class="fas fa-gem" class="currency-icon"></i> 250</div>
+            <button class="cyber-button" onclick="Store.purchaseItem('power_paddle')">Purchase</button>
+          </div>
+          
+          <div class="store-item">
+            <div class="store-item-image">
+              <i class="fas fa-shield-alt" style="font-size: 48px; color: #3399ff;"></i>
+            </div>
+            <h3 class="store-item-title">Shield Generator</h3>
+            <p class="store-item-description">Start each game with an active shield power-up.</p>
+            <div class="store-item-price"><i class="fas fa-gem" class="currency-icon"></i> 350</div>
+            <button class="cyber-button" onclick="Store.purchaseItem('shield_generator')">Purchase</button>
           </div>
         </div>
       </div>
@@ -665,6 +697,134 @@
     </div>
   </div>
   
+  <!-- Profile Panel -->
+  <div id="profilePanel" class="ui-panel" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:600px; max-height:80vh;">
+    <div class="panel-header">
+      <h2 class="panel-title">Player Profile</h2>
+      <button class="cyber-button" onclick="UI.hidePanel('profilePanel')" style="min-width: auto; padding: 5px 10px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="settings-section">
+        <h3>Personal Information</h3>
+        <div class="settings-row">
+          <label for="playerName">Player Name:</label>
+          <input type="text" id="playerName" value="Player" style="width: 200px;">
+        </div>
+        
+        <div class="settings-row">
+          <label for="playerAvatar">Avatar Color:</label>
+          <select id="playerAvatar">
+            <option value="cyan">Cyan</option>
+            <option value="magenta">Magenta</option>
+            <option value="yellow">Yellow</option>
+            <option value="green">Green</option>
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+          </select>
+        </div>
+        
+        <div class="settings-row">
+          <label for="paypalEmail">PayPal Email:</label>
+          <input type="email" id="paypalEmail" value="cartermoyer75@gmail.com" style="width: 250px;">
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Game Statistics</h3>
+        <div class="settings-row">
+          <label>Total Games Played:</label>
+          <span>25</span>
+        </div>
+        
+        <div class="settings-row">
+          <label>Games Won:</label>
+          <span>18</span>
+        </div>
+        
+        <div class="settings-row">
+          <label>Current Win Streak:</label>
+          <span>3</span>
+        </div>
+        
+        <div class="settings-row">
+          <label>Average Rally Length:</label>
+          <span>12.5</span>
+        </div>
+      </div>
+      
+      <div class="btn-group">
+        <button class="cyber-button" onclick="Store.updateProfile()">Save Profile</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Login Panel -->
+  <div id="loginPanel" class="ui-panel" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:400px; max-height:80vh;">
+    <div class="panel-header">
+      <h2 class="panel-title">Login</h2>
+      <button class="cyber-button" onclick="UI.hidePanel('loginPanel')" style="min-width: auto; padding: 5px 10px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="settings-section">
+        <div class="settings-row">
+          <label for="loginEmail">Email:</label>
+          <input type="email" id="loginEmail" style="width: 100%;">
+        </div>
+        
+        <div class="settings-row">
+          <label for="loginPassword">Password:</label>
+          <input type="password" id="loginPassword" style="width: 100%;">
+        </div>
+      </div>
+      
+      <div class="btn-group">
+        <button class="cyber-button" onclick="Store.login(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value)">Login</button>
+        <button class="cyber-button secondary" onclick="UI.hidePanel('loginPanel'); UI.showPanel('registerPanel')">Register</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Register Panel -->
+  <div id="registerPanel" class="ui-panel" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:400px; max-height:80vh;">
+    <div class="panel-header">
+      <h2 class="panel-title">Create Account</h2>
+      <button class="cyber-button" onclick="UI.hidePanel('registerPanel')" style="min-width: auto; padding: 5px 10px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="panel-content">
+      <div class="settings-section">
+        <div class="settings-row">
+          <label for="registerName">Player Name:</label>
+          <input type="text" id="registerName" style="width: 100%;">
+        </div>
+        
+        <div class="settings-row">
+          <label for="registerEmail">Email:</label>
+          <input type="email" id="registerEmail" style="width: 100%;">
+        </div>
+        
+        <div class="settings-row">
+          <label for="registerPassword">Password:</label>
+          <input type="password" id="registerPassword" style="width: 100%;">
+        </div>
+        
+        <div class="settings-row">
+          <label for="registerConfirmPassword">Confirm Password:</label>
+          <input type="password" id="registerConfirmPassword" style="width: 100%;">
+        </div>
+      </div>
+      
+      <div class="btn-group">
+        <button class="cyber-button" onclick="Store.register(document.getElementById('registerEmail').value, document.getElementById('registerPassword').value, document.getElementById('registerName').value)">Create Account</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification Container -->
   <div class="notification-container" id="notificationContainer"></div>
 

@@ -15,6 +15,32 @@ const Physics = {
     Game.ball.position.x += Game.ball.userData.velocity.x * deltaTime * Settings.settings.game.gameSpeed;
     Game.ball.position.y += Game.ball.userData.velocity.y * deltaTime * Settings.settings.game.gameSpeed;
     
+    // For 2.5D effect: move ball in z axis with damping
+    if (Game.ball.userData.velocity.z) {
+      Game.ball.position.z += Game.ball.userData.velocity.z * deltaTime * Settings.settings.game.gameSpeed;
+      Game.ball.userData.velocity.z *= 0.95; // Damping
+      
+      // Keep ball within reasonable z bounds for 2.5D effect
+      if (Game.ball.position.z < 2) {
+        Game.ball.position.z = 2;
+        Game.ball.userData.velocity.z = Math.abs(Game.ball.userData.velocity.z) * 0.5;
+      } else if (Game.ball.position.z > 8) {
+        Game.ball.position.z = 8;
+        Game.ball.userData.velocity.z = -Math.abs(Game.ball.userData.velocity.z) * 0.5;
+      }
+      
+      // Adjust ball size based on z position for depth effect
+      const scale = 1 + (Game.ball.position.z - 4) / 16;
+      Game.ball.scale.set(scale, scale, scale);
+      
+      // Adjust ball shadow
+      if (Game.ballShadow) {
+        const shadowScale = 0.7 + (Game.ball.position.z - 4) / 20;
+        Game.ballShadow.scale.set(shadowScale, shadowScale, 1);
+        Game.ballShadow.material.opacity = 0.3 - (Game.ball.position.z - 4) / 40;
+      }
+    }
+    
     // Check collision with top and bottom walls
     const fieldHalfHeight = Constants.FIELD_HEIGHT / 2 - Constants.BALL_RADIUS;
     if (Game.ball.position.y > fieldHalfHeight || Game.ball.position.y < -fieldHalfHeight) {
@@ -23,6 +49,9 @@ const Physics = {
       // Add randomness to bounce based on settings
       Game.ball.userData.velocity.y += (Math.random() - 0.5) * (Settings.settings.game.randomnessLevel / 50);
       
+      // Add slight z-velocity for 2.5D effect
+      Game.ball.userData.velocity.z = (Math.random() - 0.5) * 3;
+      
       // Play wall collision sound
       Audio.playSoundWithVolume(Audio.sounds.wall);
       
@@ -30,9 +59,20 @@ const Physics = {
       Utils.createImpactEffect(
         Game.ball.position.x, 
         Game.ball.position.y > 0 ? fieldHalfHeight : -fieldHalfHeight, 
-        0, 
+        Game.ball.position.z, 
         0x00ffff
       );
+      
+      // Add camera shake for 2.5D effect
+      if (Math.abs(Game.ball.userData.velocity.y) > 5) {
+        Renderer.createCameraShake(0.2);
+      }
+    }
+    
+    // Rotate ball based on velocity for 2.5D effect
+    if (Game.ball) {
+      Game.ball.rotation.z -= Game.ball.userData.velocity.x * deltaTime * 0.2;
+      Game.ball.rotation.x += Game.ball.userData.velocity.y * deltaTime * 0.2;
     }
     
     // Check for paddle collisions
@@ -86,6 +126,9 @@ const Physics = {
       Game.ball.userData.velocity.x = Math.abs(newSpeed * Math.cos(angle));
       Game.ball.userData.velocity.y = newSpeed * Math.sin(angle);
       
+      // Add slight z-velocity for 2.5D pop-out effect
+      Game.ball.userData.velocity.z = (Math.random() - 0.5) * 2;
+      
       // Play paddle collision sound
       Audio.playSoundWithVolume(Audio.sounds.paddle);
       
@@ -96,6 +139,9 @@ const Physics = {
         0, 
         0x00fcff
       );
+      
+      // Trigger paddle hit animation for 2.5D effect
+      Renderer.triggerPaddleHitAnimation(Game.leftPaddle);
       
       // Reset stuck counter
       this.stuckCounter = 0;
@@ -127,6 +173,9 @@ const Physics = {
       Game.ball.userData.velocity.x = -Math.abs(newSpeed * Math.cos(angle));
       Game.ball.userData.velocity.y = newSpeed * Math.sin(angle);
       
+      // Add slight z-velocity for 2.5D pop-out effect
+      Game.ball.userData.velocity.z = (Math.random() - 0.5) * 2;
+      
       // Play paddle collision sound
       Audio.playSoundWithVolume(Audio.sounds.paddle);
       
@@ -137,6 +186,9 @@ const Physics = {
         0, 
         0xff00ff
       );
+      
+      // Trigger paddle hit animation for 2.5D effect
+      Renderer.triggerPaddleHitAnimation(Game.rightPaddle);
       
       // Reset stuck counter
       this.stuckCounter = 0;
