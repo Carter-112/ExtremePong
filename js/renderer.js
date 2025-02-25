@@ -44,13 +44,17 @@ const Renderer = {
     
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(canvas.width, canvas.height);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.shadowMap.enabled = Settings.settings.graphics.enableShadows;
     
+    // Log renderer creation
+    console.log('Renderer created with canvas dimensions:', canvas.width, 'x', canvas.height);
+    
     // Handle window resize
     window.addEventListener('resize', () => {
-      const aspect = window.innerWidth / window.innerHeight;
+      const canvas = document.getElementById('gameCanvas');
+      const aspect = canvas.width / canvas.height;
       const frustumSize = 100;
       
       this.camera.left = frustumSize * aspect / -2;
@@ -58,11 +62,15 @@ const Renderer = {
       this.camera.top = frustumSize / 2;
       this.camera.bottom = frustumSize / -2;
       this.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      
+      // Keep the renderer matching the canvas size rather than window
+      this.renderer.setSize(canvas.width, canvas.height);
       
       if (this.effectComposer) {
-        this.effectComposer.setSize(window.innerWidth, window.innerHeight);
+        this.effectComposer.setSize(canvas.width, canvas.height);
       }
+      
+      console.log('Resized renderer to:', canvas.width, 'x', canvas.height);
     });
     
     // Create game scene group
@@ -103,42 +111,55 @@ const Renderer = {
    * Initialize post-processing effects for 2.5D pop-out visuals
    */
   initPostProcessing: function() {
-    // Set up effect composer for post-processing
-    this.effectComposer = new THREE.EffectComposer(this.renderer);
-    
-    // Add render pass
-    const renderPass = new THREE.RenderPass(this.scene, this.camera);
-    this.effectComposer.addPass(renderPass);
-    
-    // Add bloom pass for glow effects
-    if (Settings.settings.graphics.enableBloom) {
-      const bloomPass = new THREE.UnrealBloomPass(
+    try {
+      // Log for debugging
+      console.log('Initializing post-processing effects...');
+      
+      // Set up effect composer for post-processing
+      this.effectComposer = new THREE.EffectComposer(this.renderer);
+      
+      // Add render pass
+      const renderPass = new THREE.RenderPass(this.scene, this.camera);
+      this.effectComposer.addPass(renderPass);
+      
+      // Add bloom pass for glow effects
+      if (Settings.settings.graphics.enableBloom) {
+        console.log('Adding bloom pass...');
+        const bloomPass = new THREE.UnrealBloomPass(
+          new THREE.Vector2(window.innerWidth, window.innerHeight),
+          1.5,  // strength
+          0.4,  // radius
+          0.85   // threshold
+        );
+        this.effectComposer.addPass(bloomPass);
+      }
+      
+      // Add outline pass for pop-out effect
+      console.log('Adding outline pass...');
+      const outlinePass = new THREE.OutlinePass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.5,  // strength
-        0.4,  // radius
-        0.85   // threshold
+        this.scene,
+        this.camera
       );
-      this.effectComposer.addPass(bloomPass);
+      outlinePass.edgeStrength = 3.0;
+      outlinePass.edgeGlow = 0.7;
+      outlinePass.edgeThickness = 1.0;
+      outlinePass.pulsePeriod = 0;
+      outlinePass.visibleEdgeColor.set(0x00ffff);
+      outlinePass.hiddenEdgeColor.set(0xff00ff);
+      this.effectComposer.addPass(outlinePass);
+      
+      // Final pass with film grain for arcade effect
+      console.log('Adding film pass...');
+      const filmPass = new THREE.FilmPass(0.35, 0.025, 648, false);
+      filmPass.renderToScreen = true;
+      this.effectComposer.addPass(filmPass);
+      
+      console.log('Post-processing initialized successfully');
+    } catch (error) {
+      console.error('Error initializing post-processing:', error);
+      // Continue without post-processing if it fails
     }
-    
-    // Add outline pass for pop-out effect
-    const outlinePass = new THREE.OutlinePass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      this.scene,
-      this.camera
-    );
-    outlinePass.edgeStrength = 3.0;
-    outlinePass.edgeGlow = 0.7;
-    outlinePass.edgeThickness = 1.0;
-    outlinePass.pulsePeriod = 0;
-    outlinePass.visibleEdgeColor.set(0x00ffff);
-    outlinePass.hiddenEdgeColor.set(0xff00ff);
-    this.effectComposer.addPass(outlinePass);
-    
-    // Final pass with film grain for arcade effect
-    const filmPass = new THREE.FilmPass(0.35, 0.025, 648, false);
-    filmPass.renderToScreen = true;
-    this.effectComposer.addPass(filmPass);
   },
   
   /**
@@ -178,6 +199,8 @@ const Renderer = {
    * Create the game field
    */
   createGameField: function() {
+    console.log('Creating game field...');
+    
     // Create game field
     const fieldGeometry = new THREE.BoxGeometry(Constants.FIELD_WIDTH, Constants.FIELD_HEIGHT, Constants.FIELD_DEPTH);
     
@@ -193,6 +216,11 @@ const Renderer = {
     const wireframe = new THREE.LineSegments(edges, edgesMaterial);
     this.gameScene.add(wireframe);
     Game.gameField = wireframe;
+    
+    console.log('Game field created with dimensions:', 
+                Constants.FIELD_WIDTH, 'x', 
+                Constants.FIELD_HEIGHT, 'x', 
+                Constants.FIELD_DEPTH);
     
     // Create center line
     const centerLineGeometry = new THREE.PlaneGeometry(0.3, Constants.FIELD_HEIGHT, 1, 10);
@@ -705,11 +733,22 @@ const Renderer = {
    * Render the scene with post-processing effects
    */
   render: function() {
-    // Use effect composer if available
-    if (this.effectComposer && Settings.settings.graphics.enableBloom) {
-      this.effectComposer.render();
-    } else {
-      this.renderer.render(this.scene, this.camera);
+    try {
+      // Use effect composer if available and settings allow
+      if (this.effectComposer && Settings.settings.graphics.enableBloom) {
+        this.effectComposer.render();
+      } else {
+        // Fallback to standard rendering
+        this.renderer.render(this.scene, this.camera);
+      }
+    } catch (error) {
+      console.error('Render error:', error);
+      // Always try to render, even if post-processing fails
+      try {
+        this.renderer.render(this.scene, this.camera);
+      } catch (fallbackError) {
+        console.error('Critical render failure:', fallbackError);
+      }
     }
   }
 };

@@ -51,6 +51,11 @@ function animate(currentTime = 0) {
   // Skip if delta time is too large (tab was inactive)
   if (deltaTime > 0.1) return;
   
+  // Log game state periodically (every 3 seconds) for debugging
+  if (Math.floor(currentTime / 3000) !== Math.floor((currentTime - deltaTime * 1000) / 3000)) {
+    console.log('Current game state:', Game.gameState);
+  }
+  
   // Update the game state
   switch (Game.gameState) {
     case 'menu':
@@ -73,6 +78,12 @@ function animate(currentTime = 0) {
       
     case 'finished':
       // Game over animations
+      Renderer.updatePopOutEffects(deltaTime);
+      break;
+      
+    case 'gameOver':
+      // Temporary state between points
+      Game.update(deltaTime);
       Renderer.updatePopOutEffects(deltaTime);
       break;
   }
