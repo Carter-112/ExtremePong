@@ -191,7 +191,32 @@ const Store = {
    * Save player data to localStorage
    */
   savePlayerData: function() {
-    // Save player data to localStorage
+    // IMPORTANT: Make sure player data is properly synced with registered users first
+    if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
+      // Update player data in registered users
+      this.registeredUsers[this.userEmail].credits = this.playerCredits;
+      
+      // Make sure items are properly saved
+      if (!this.registeredUsers[this.userEmail].items) {
+        this.registeredUsers[this.userEmail].items = {};
+      }
+      
+      // Merge items - this ensures all items are saved to account
+      Object.keys(this.playerItems).forEach(key => {
+        if (this.playerItems[key]) {
+          this.registeredUsers[this.userEmail].items[key] = true;
+        }
+      });
+      
+      // Also ensure account items are in player items
+      Object.keys(this.registeredUsers[this.userEmail].items).forEach(key => {
+        if (this.registeredUsers[this.userEmail].items[key]) {
+          this.playerItems[key] = true;
+        }
+      });
+    }
+    
+    // Then save player data to localStorage
     const playerData = {
       name: this.playerName,
       avatar: this.playerAvatar,
@@ -208,6 +233,10 @@ const Store = {
     
     // Also save registered users
     localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
+    
+    // Log what was saved for debugging
+    console.log('Saved player items:', Object.keys(this.playerItems));
+    console.log('Credits:', this.playerCredits);
     
     // In a real implementation, we would also send data to the server
     // this.syncWithServer();
@@ -251,19 +280,35 @@ const Store = {
         this.userStats = data.stats;
       }
       
-      // Ensure purchased items are properly loaded from account
+      // If logged in, we MUST ensure account data is primary
       if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
-        // Sync credits with account to ensure they match between sessions
-        this.playerCredits = this.registeredUsers[this.userEmail].credits || this.playerCredits;
+        const userData = this.registeredUsers[this.userEmail];
         
-        // Load items from account
-        if (this.registeredUsers[this.userEmail].items) {
-          // Merge items from account with current items
-          this.playerItems = {...this.playerItems, ...this.registeredUsers[this.userEmail].items};
-          
-          // Save data to ensure consistency
-          this.savePlayerData();
+        // Critical: Credits must be loaded from account data
+        if (typeof userData.credits === 'number') {
+          this.playerCredits = userData.credits;
+          console.log('Loaded credits from account:', this.playerCredits);
         }
+        
+        // Also critical: Owned items must be loaded from account
+        if (userData.items) {
+          // First ensure playerItems is initialized
+          if (!this.playerItems) {
+            this.playerItems = {};
+          }
+          
+          // For each item in account, ensure it's in player items
+          Object.keys(userData.items).forEach(key => {
+            if (userData.items[key]) {
+              this.playerItems[key] = true;
+            }
+          });
+          
+          console.log('Loaded items from account:', Object.keys(this.playerItems));
+        }
+        
+        // Finally, synchronize back to ensure consistency
+        this.savePlayerData();
       }
       
       // Update login state in Game
