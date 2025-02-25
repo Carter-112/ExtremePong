@@ -192,6 +192,51 @@
       border-radius: 8px;
     }
     
+    .settings-panel {
+      background: rgba(0, 10, 30, 0.8);
+      border: 2px solid var(--primary);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 500px;
+      pointer-events: auto;
+      box-shadow: 0 0 15px rgba(0, 252, 255, 0.3);
+    }
+    
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .settings-panel label {
+      color: var(--text);
+      margin: 5px 10px;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+    }
+    
+    .settings-panel input, .settings-panel select {
+      background: rgba(0, 0, 20, 0.5);
+      border: 1px solid var(--primary);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 5px;
+      margin-left: 8px;
+      font-family: 'Orbitron', sans-serif;
+    }
+    
+    .settings-panel input[type="range"] {
+      width: 100px;
+    }
+    
+    .settings-panel input[type="number"] {
+      width: 50px;
+    }
+    
     .key {
       display: inline-flex;
       align-items: center;
@@ -393,6 +438,19 @@
         font-size: 28px;
         padding: 0 10px;
       }
+      
+      .settings-panel {
+        padding: 8px;
+      }
+      
+      .settings-panel label {
+        font-size: 12px;
+        margin: 3px 5px;
+      }
+      
+      .settings-panel input[type="range"] {
+        width: 70px;
+      }
     }
   </style>
 </head>
@@ -419,9 +477,38 @@
         </div>
         
         <div class="button-row" id="game-mode-buttons">
-          <button id="practice-mode">Practice</button>
+          <button id="playground-mode">Playground</button>
           <button id="online-mode">Online Play</button>
           <button id="quit-button" style="display: none;">Quit Game</button>
+        </div>
+        
+        <div id="playground-settings" class="settings-panel" style="display: none;">
+          <div class="settings-row">
+            <label>Max Score: 
+              <input type="number" id="max-score-setting" min="1" max="99" value="10">
+            </label>
+            <label>Game Speed: 
+              <input type="range" id="game-speed-setting" min="0.5" max="2" step="0.1" value="1">
+            </label>
+          </div>
+          <div class="settings-row">
+            <label>Power-ups: 
+              <select id="powerup-frequency">
+                <option value="0">None</option>
+                <option value="8000">Low</option>
+                <option value="5000" selected>Normal</option>
+                <option value="3000">High</option>
+              </select>
+            </label>
+            <label>AI Difficulty: 
+              <select id="ai-difficulty">
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Hard</option>
+                <option value="insane">Insane</option>
+              </select>
+            </label>
+          </div>
         </div>
         
         <div class="controls-help">
@@ -475,12 +562,14 @@
     
     // ----- Game State Variables -----
     let gameState = 'start'; // start, playing, paused, gameOver, finished, waiting
-    let maxPoints = 10; // Set to Infinity for unlimited practice mode
+    let maxPoints = 10; 
     let gameSpeed = 1;
     let randomnessLevel = 15;
     let consecutiveHits = 0;
     let isOnlineMode = false;
     let isWaitingForOpponent = false;
+    let isPlaygroundMode = false;
+    let powerUpInterval = 5000; // Default 5 seconds
     
     // ----- Background Animation Variables -----
     const particles = [];
@@ -573,7 +662,7 @@
     // ----- Power-up Settings -----
     let powerUps = [];
     let powerUpTimer = 0;
-    const POWERUP_INTERVAL = 5000; // 5 seconds between power-up spawns
+    // Power-up interval is controlled by the powerUpInterval variable
     
     const POWERUP_TYPES = ['speed', 'giant', 'shrink', 'shield', 'ballSpeed', 'ghost', 'multiBall', 'freeze'];
     const POWERUP_CHANCES = {
@@ -692,9 +781,15 @@
     document.getElementById('pause-button').addEventListener('click', togglePause);
     
     // Game mode buttons
-    document.getElementById('practice-mode').addEventListener('click', startPracticeMode);
+    document.getElementById('playground-mode').addEventListener('click', startPlaygroundMode);
     document.getElementById('online-mode').addEventListener('click', startOnlineMode);
     document.getElementById('quit-button').addEventListener('click', quitGame);
+    
+    // Settings listeners
+    document.getElementById('max-score-setting').addEventListener('change', updateMaxScore);
+    document.getElementById('game-speed-setting').addEventListener('input', updateGameSpeed);
+    document.getElementById('powerup-frequency').addEventListener('change', updatePowerUpFrequency);
+    document.getElementById('ai-difficulty').addEventListener('change', updateAIDifficulty);
     
     // ----- Game Functions -----
     
@@ -798,19 +893,26 @@
       }
     }
     
-    // Start practice mode
-    function startPracticeMode() {
+    // Start playground mode
+    function startPlaygroundMode() {
       // Update UI
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
-      document.getElementById('practice-mode').classList.add('active');
+      document.getElementById('playground-mode').classList.add('active');
       document.getElementById('quit-button').style.display = 'inline-block';
+      document.getElementById('playground-settings').style.display = 'block';
       
       // Update game state
       isOnlineMode = false;
       isWaitingForOpponent = false;
-      maxPoints = Infinity; // Unlimited score for practice
+      isPlaygroundMode = true;
+      
+      // Load current settings from controls
+      updateMaxScore();
+      updateGameSpeed();
+      updatePowerUpFrequency();
+      updateAIDifficulty();
       
       // Update paddles
       leftPaddle.isAI = false; // Human always controls left paddle
@@ -828,6 +930,45 @@
       startGame(); // Automatically start the game
     }
     
+    // Update max score from settings
+    function updateMaxScore() {
+      const scoreInput = document.getElementById('max-score-setting');
+      maxPoints = parseInt(scoreInput.value) || 10;
+      if (maxPoints < 1) maxPoints = 1;
+      if (maxPoints > 99) maxPoints = 99;
+      scoreInput.value = maxPoints;
+    }
+    
+    // Update game speed from settings
+    function updateGameSpeed() {
+      const speedInput = document.getElementById('game-speed-setting');
+      gameSpeed = parseFloat(speedInput.value) || 1;
+      if (gameSpeed < 0.5) gameSpeed = 0.5;
+      if (gameSpeed > 2) gameSpeed = 2;
+      
+      // Update ball and paddle speeds
+      ball.speed = 5 * gameSpeed;
+      leftPaddle.speed = 5 * gameSpeed;
+      rightPaddle.speed = 5 * gameSpeed;
+    }
+    
+    // Update power-up frequency from settings
+    function updatePowerUpFrequency() {
+      const frequencySelect = document.getElementById('powerup-frequency');
+      powerUpInterval = parseInt(frequencySelect.value) || 5000;
+      
+      // Clear all power-ups if disabled
+      if (powerUpInterval <= 0) {
+        powerUps = [];
+      }
+    }
+    
+    // Update AI difficulty from settings
+    function updateAIDifficulty() {
+      const difficultySelect = document.getElementById('ai-difficulty');
+      rightPaddle.difficulty = difficultySelect.value || 'normal';
+    }
+    
     // Start online mode
     function startOnlineMode() {
       // Update UI
@@ -836,11 +977,21 @@
       });
       document.getElementById('online-mode').classList.add('active');
       document.getElementById('quit-button').style.display = 'inline-block';
+      document.getElementById('playground-settings').style.display = 'none';
       
       // Update game state
       isOnlineMode = true;
       isWaitingForOpponent = true;
-      maxPoints = 10; // Reset to standard scoring
+      isPlaygroundMode = false;
+      
+      // Reset to default online settings
+      maxPoints = 10;
+      gameSpeed = 1;
+      powerUpInterval = 5000;
+      ball.speed = 5;
+      leftPaddle.speed = 5;
+      rightPaddle.speed = 5;
+      rightPaddle.difficulty = 'normal';
       
       // Update paddles for practice while waiting
       leftPaddle.isAI = false; // Human always controls left paddle
@@ -889,10 +1040,20 @@
         btn.classList.remove('active');
       });
       document.getElementById('quit-button').style.display = 'none';
+      document.getElementById('playground-settings').style.display = 'none';
       
       // Reset game state
       isOnlineMode = false;
       isWaitingForOpponent = false;
+      isPlaygroundMode = false;
+      
+      // Reset to default settings
+      maxPoints = 10;
+      gameSpeed = 1;
+      powerUpInterval = 5000;
+      ball.speed = 5;
+      leftPaddle.speed = 5;
+      rightPaddle.speed = 5;
       
       // Hide waiting message
       if (waitingMessage) {
@@ -936,9 +1097,12 @@
       if (isOnlineMode && isWaitingForOpponent) {
         // Don't show the main message, only the waiting message
         hideElement('.game-message:not(.waiting-message)');
+      } else if (isPlaygroundMode) {
+        // Playground mode selected
+        showGameMessage('PLAYGROUND MODE', 'W/S keys to move - Adjust settings below');
       } else if (document.getElementById('quit-button').style.display === 'inline-block') {
-        // Game mode already selected, ready to play
-        showGameMessage('EXTREME PONG', 'Practice Mode - W/S keys to move');
+        // Online mode selected but not waiting
+        showGameMessage('ONLINE MODE', 'Practice while waiting - W/S keys to move');
       } else {
         // No mode selected yet
         showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
@@ -1360,11 +1524,13 @@
     
     // Update power-ups
     function updatePowerUps() {
-      // Spawn new power-ups
-      powerUpTimer += 16.67; // Approx 60fps
-      if (powerUpTimer >= POWERUP_INTERVAL) {
-        spawnPowerUp();
-        powerUpTimer = 0;
+      // Spawn new power-ups (only if powerUpInterval > 0)
+      if (powerUpInterval > 0) {
+        powerUpTimer += 16.67; // Approx 60fps
+        if (powerUpTimer >= powerUpInterval) {
+          spawnPowerUp();
+          powerUpTimer = 0;
+        }
       }
       
       // Check for ball collision with power-ups
