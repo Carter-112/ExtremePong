@@ -240,6 +240,38 @@
       width: 50px;
     }
     
+    .settings-btn {
+      background: rgba(0, 10, 30, 0.7);
+      color: var(--text);
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 8px 16px;
+      border: 2px solid var(--primary);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+    }
+    
+    .settings-btn:hover {
+      background: var(--primary);
+      color: var(--background);
+    }
+    
+    .small-btn {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+    
+    #matchmaking-status {
+      min-height: 60px;
+      background: rgba(0, 0, 20, 0.3);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    
     .key {
       display: inline-flex;
       align-items: center;
@@ -495,12 +527,13 @@
         </div>
         
         <div class="button-row" id="game-mode-buttons">
-          <button id="playground-mode">Playground</button>
+          <button id="offline-mode">Offline Play</button>
           <button id="online-mode">Online Play</button>
-          <button id="quit-button" style="display: none;">Quit Game</button>
+          <button id="quit-button" style="display: none;">Return to Menu</button>
+          <button id="share-code" style="display: none;"><i class="fas fa-share-alt"></i> Share Code</button>
         </div>
         
-        <div id="playground-settings" class="settings-panel" style="display: none;">
+        <div id="settings-panel" class="settings-panel" style="display: none;">
           <div class="settings-row">
             <label>Max Score: 
               <input type="number" id="max-score-setting" min="1" max="99" value="10">
@@ -526,6 +559,36 @@
                 <option value="insane">Insane</option>
               </select>
             </label>
+          </div>
+          <div class="settings-row">
+            <button id="settings-apply" class="settings-btn">Apply</button>
+            <button id="settings-default" class="settings-btn">Reset to Default</button>
+          </div>
+        </div>
+        
+        <div id="matchmaking-panel" class="settings-panel" style="display: none;">
+          <div class="settings-row">
+            <div id="room-code-container" style="display: none;">
+              <label>Room Code: <span id="room-code" style="font-weight: bold; color: var(--tertiary);"></span></label>
+              <button id="copy-code" class="settings-btn small-btn"><i class="fas fa-copy"></i> Copy</button>
+            </div>
+            <div id="join-room-container">
+              <label>Join with Code: 
+                <input type="text" id="join-code" placeholder="Enter code" maxlength="6">
+              </label>
+              <button id="join-room" class="settings-btn small-btn">Join</button>
+            </div>
+          </div>
+          <div class="settings-row" id="matchmaking-status">
+            <div style="text-align: center; width: 100%;">
+              <span id="status-message">Click "Quick Match" to find an opponent</span>
+              <div id="loading-spinner" style="display: none; margin: 10px auto; width: 30px; height: 30px;" class="loading-spinner"></div>
+            </div>
+          </div>
+          <div class="settings-row">
+            <button id="quick-match" class="settings-btn">Quick Match</button>
+            <button id="create-room" class="settings-btn">Create Room</button>
+            <button id="cancel-matchmaking" class="settings-btn" style="display: none;">Cancel</button>
           </div>
         </div>
         
@@ -619,6 +682,7 @@
         text-align: center;
         pointer-events: none;
         z-index: 100;
+        max-width: 90%;
       }
       
       .loading-spinner {
@@ -799,9 +863,21 @@
     document.getElementById('pause-button').addEventListener('click', togglePause);
     
     // Game mode buttons
-    document.getElementById('playground-mode').addEventListener('click', startPlaygroundMode);
+    document.getElementById('offline-mode').addEventListener('click', startOfflineMode);
     document.getElementById('online-mode').addEventListener('click', startOnlineMode);
-    document.getElementById('quit-button').addEventListener('click', quitGame);
+    document.getElementById('quit-button').addEventListener('click', returnToMenu);
+    
+    // Settings panel buttons
+    document.getElementById('settings-apply').addEventListener('click', applySettings);
+    document.getElementById('settings-default').addEventListener('click', resetToDefaultSettings);
+    
+    // Matchmaking panel buttons
+    document.getElementById('quick-match').addEventListener('click', startQuickMatch);
+    document.getElementById('create-room').addEventListener('click', createRoom);
+    document.getElementById('join-room').addEventListener('click', joinRoom);
+    document.getElementById('copy-code').addEventListener('click', copyRoomCode);
+    document.getElementById('cancel-matchmaking').addEventListener('click', cancelMatchmaking);
+    document.getElementById('share-code').addEventListener('click', showRoomCode);
     
     // Settings listeners
     document.getElementById('max-score-setting').addEventListener('change', updateMaxScore);
@@ -911,15 +987,16 @@
       }
     }
     
-    // Start playground mode
-    function startPlaygroundMode() {
+    // Start offline mode
+    function startOfflineMode() {
       // Update UI
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
-      document.getElementById('playground-mode').classList.add('active');
+      document.getElementById('offline-mode').classList.add('active');
       document.getElementById('quit-button').style.display = 'inline-block';
-      document.getElementById('playground-settings').style.display = 'block';
+      document.getElementById('settings-panel').style.display = 'block';
+      document.getElementById('matchmaking-panel').style.display = 'none';
       
       // Update game state
       isOnlineMode = false;
@@ -946,6 +1023,33 @@
       
       resetGame();
       startGame(); // Automatically start the game
+    }
+    
+    // Apply settings button handler
+    function applySettings() {
+      updateMaxScore();
+      updateGameSpeed();
+      updatePowerUpFrequency();
+      updateAIDifficulty();
+      
+      showNotification("Settings applied!");
+      
+      // If game is already running, reset it to apply new settings
+      if (gameState === 'playing' || gameState === 'paused') {
+        resetGame();
+        startGame();
+      }
+    }
+    
+    // Reset to default settings
+    function resetToDefaultSettings() {
+      document.getElementById('max-score-setting').value = 10;
+      document.getElementById('game-speed-setting').value = 1;
+      document.getElementById('powerup-frequency').value = 5000;
+      document.getElementById('ai-difficulty').value = 'normal';
+      
+      // Apply these default settings
+      applySettings();
     }
     
     // Update max score from settings
@@ -995,11 +1099,12 @@
       });
       document.getElementById('online-mode').classList.add('active');
       document.getElementById('quit-button').style.display = 'inline-block';
-      document.getElementById('playground-settings').style.display = 'none';
+      document.getElementById('settings-panel').style.display = 'none';
+      document.getElementById('matchmaking-panel').style.display = 'block';
       
       // Update game state
       isOnlineMode = true;
-      isWaitingForOpponent = true;
+      isWaitingForOpponent = false; // Not yet waiting until they click matchmaking
       isPlaygroundMode = false;
       
       // Reset to default online settings
@@ -1011,21 +1116,131 @@
       rightPaddle.speed = 5;
       rightPaddle.difficulty = 'normal';
       
-      // Update paddles for practice while waiting
+      // Update paddles
       leftPaddle.isAI = false; // Human always controls left paddle
       rightPaddle.isAI = true; // AI controls right paddle
       
-      // Add waiting message to UI
+      // Hide waiting message if visible
+      waitingMessage.style.display = 'none';
+      
+      // Add waiting message to UI if needed
       if (!document.querySelector('.waiting-message')) {
         document.getElementById('ui-container').appendChild(waitingMessage);
       }
-      waitingMessage.style.display = 'block';
-      
-      // Simulate finding an opponent after random time (in real implementation, this would be a server call)
-      setTimeout(foundOpponent, Math.random() * 5000 + 3000);
       
       resetGame();
-      startGame(); // Start practice mode while waiting
+      startGame(); // Start game in practice mode
+    }
+    
+    // Quick match function - finds a random opponent
+    function startQuickMatch() {
+      // Update matchmaking UI
+      document.getElementById('quick-match').style.display = 'none';
+      document.getElementById('create-room').style.display = 'none';
+      document.getElementById('join-room-container').style.display = 'none';
+      document.getElementById('cancel-matchmaking').style.display = 'inline-block';
+      document.getElementById('loading-spinner').style.display = 'block';
+      document.getElementById('status-message').textContent = 'Searching for opponent...';
+      
+      // Start waiting for opponent
+      isWaitingForOpponent = true;
+      
+      // Simulate finding an opponent after random time (in real implementation, this would be a server call)
+      const matchTimeout = Math.random() * 5000 + 3000;
+      waitingMessage.style.display = 'block';
+      
+      // Store timeout so we can cancel it
+      window.matchmakingTimeout = setTimeout(foundOpponent, matchTimeout);
+    }
+    
+    // Create a private room
+    function createRoom() {
+      // Generate a random 6-character code
+      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Update UI
+      document.getElementById('room-code').textContent = roomCode;
+      document.getElementById('room-code-container').style.display = 'block';
+      document.getElementById('share-code').style.display = 'inline-block';
+      document.getElementById('quick-match').style.display = 'none';
+      document.getElementById('create-room').style.display = 'none';
+      document.getElementById('join-room-container').style.display = 'none';
+      document.getElementById('cancel-matchmaking').style.display = 'inline-block';
+      document.getElementById('loading-spinner').style.display = 'block';
+      document.getElementById('status-message').textContent = 'Waiting for opponent to join...';
+      
+      // Start waiting for opponent
+      isWaitingForOpponent = true;
+      waitingMessage.style.display = 'block';
+      
+      // In a real implementation, we would create a room on the server
+    }
+    
+    // Join an existing room
+    function joinRoom() {
+      const roomCode = document.getElementById('join-code').value.trim().toUpperCase();
+      
+      if (!roomCode || roomCode.length !== 6) {
+        showNotification("Please enter a valid 6-character room code");
+        return;
+      }
+      
+      // Update UI
+      document.getElementById('quick-match').style.display = 'none';
+      document.getElementById('create-room').style.display = 'none';
+      document.getElementById('join-room-container').style.display = 'none';
+      document.getElementById('cancel-matchmaking').style.display = 'inline-block';
+      document.getElementById('loading-spinner').style.display = 'block';
+      document.getElementById('status-message').textContent = 'Joining room ' + roomCode + '...';
+      
+      // In a real implementation, we would attempt to join the room on the server
+      // For now, just simulate finding an opponent immediately
+      setTimeout(foundOpponent, 1500);
+      
+      // Start waiting for opponent connection
+      isWaitingForOpponent = true;
+      waitingMessage.style.display = 'block';
+    }
+    
+    // Show notification with room code
+    function showRoomCode() {
+      const roomCode = document.getElementById('room-code').textContent;
+      showNotification("Room Code: " + roomCode);
+    }
+    
+    // Copy room code to clipboard
+    function copyRoomCode() {
+      const roomCode = document.getElementById('room-code').textContent;
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(roomCode).then(() => {
+        showNotification("Room code copied to clipboard!");
+      }).catch(err => {
+        console.error('Failed to copy code: ', err);
+        showNotification("Failed to copy code. Please copy it manually.");
+      });
+    }
+    
+    // Cancel matchmaking
+    function cancelMatchmaking() {
+      // Update UI
+      document.getElementById('quick-match').style.display = 'inline-block';
+      document.getElementById('create-room').style.display = 'inline-block';
+      document.getElementById('join-room-container').style.display = 'block';
+      document.getElementById('cancel-matchmaking').style.display = 'none';
+      document.getElementById('loading-spinner').style.display = 'none';
+      document.getElementById('room-code-container').style.display = 'none';
+      document.getElementById('share-code').style.display = 'none';
+      document.getElementById('status-message').textContent = 'Click "Quick Match" to find an opponent';
+      
+      // Stop waiting for opponent
+      isWaitingForOpponent = false;
+      waitingMessage.style.display = 'none';
+      
+      // Clear any pending timeouts
+      if (window.matchmakingTimeout) {
+        clearTimeout(window.matchmakingTimeout);
+      }
     }
     
     // Found opponent handler
@@ -1051,19 +1266,27 @@
       }, 3000);
     }
     
-    // Quit game
-    function quitGame() {
+    // Return to menu - simulates returning to the main menu
+    // In a real integration, this would navigate back to index.html
+    function returnToMenu() {
       // Reset UI
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
       document.getElementById('quit-button').style.display = 'none';
-      document.getElementById('playground-settings').style.display = 'none';
+      document.getElementById('share-code').style.display = 'none';
+      document.getElementById('settings-panel').style.display = 'none';
+      document.getElementById('matchmaking-panel').style.display = 'none';
       
       // Reset game state
       isOnlineMode = false;
       isWaitingForOpponent = false;
       isPlaygroundMode = false;
+      
+      // Cancel any ongoing matchmaking
+      if (window.matchmakingTimeout) {
+        clearTimeout(window.matchmakingTimeout);
+      }
       
       // Reset to default settings
       maxPoints = 10;
@@ -1082,6 +1305,9 @@
       gameState = 'start';
       resetGame();
       showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      
+      // In a real implementation, we would navigate back to the home screen
+      // window.location.href = 'index.html';
     }
     
     // Reset the game
@@ -1913,8 +2139,16 @@
       // Start game loop
       gameLoop();
       
-      // Show welcome message instead of auto-starting
-      showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      // Check for hash in URL
+      if (window.location.hash === '#menu') {
+        // Coming from home page, show mode selection
+        showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      } else {
+        // Direct access, show offline mode automatically
+        setTimeout(() => {
+          startOfflineMode();
+        }, 500);
+      }
     }
     
     // Start the game
