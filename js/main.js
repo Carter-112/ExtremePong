@@ -241,10 +241,23 @@ function addInteractionListeners() {
   });
   
   // Add explicit event listener for the Play Game button
-  document.querySelector('.cyber-button[onclick="Game.startGame()"]').addEventListener('click', function() {
-    console.log('Play button clicked, changing game state to playing');
-    Game.startGame();
-  });
+  const playButton = document.getElementById('playGameButton');
+  if (playButton) {
+    // Remove the onclick attribute to prevent double execution
+    playButton.removeAttribute('onclick');
+    
+    playButton.addEventListener('click', function() {
+      console.log('Play button clicked, changing game state to playing');
+      Game.startGame();
+    });
+    
+    // Debug click handler to ensure it works
+    playButton.addEventListener('mousedown', function() {
+      console.log('Play button mousedown detected');
+    });
+  } else {
+    console.error('Could not find Play Game button');
+  }
   
   // Make store items interactive
   document.querySelectorAll('.store-item').forEach(item => {

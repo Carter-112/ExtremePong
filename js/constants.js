@@ -4,7 +4,7 @@ const Constants = {
   PADDLE_WIDTH: 1,
   PADDLE_HEIGHT: 10,
   PADDLE_DEPTH: 3,
-  PADDLE_SPEED: 0.5,
+  PADDLE_SPEED: 40,
   
   // Ball properties
   BALL_RADIUS: 1,
