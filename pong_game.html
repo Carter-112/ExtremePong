@@ -51,6 +51,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 10px;
     }
     
     #background-canvas {
@@ -71,6 +72,7 @@
       background-color: rgba(0, 0, 30, 0.6);
       max-width: 100%;
       max-height: 80vh;
+      width: 85vw; /* Wider on desktop */
     }
     
     #ui-container {
@@ -184,6 +186,10 @@
       margin-top: 10px;
       pointer-events: none;
       font-size: 14px;
+      text-shadow: 0 0 5px rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 30, 0.5);
+      padding: 8px;
+      border-radius: 8px;
     }
     
     .key {
@@ -348,7 +354,10 @@
       }
       
       #game-canvas {
-        max-height: 60vh;
+        max-height: 70vh;
+        width: 95vw;
+        height: auto;
+        aspect-ratio: 3/4; /* Taller on mobile for vertical screens */
       }
       
       #controls {
@@ -356,9 +365,9 @@
       }
       
       button {
-        padding: 10px 15px;
-        font-size: 14px;
-        min-width: 100px;
+        padding: 8px 12px;
+        font-size: 12px;
+        min-width: 80px;
       }
       
       .controls-help {
@@ -367,6 +376,22 @@
       
       #mobile-controls {
         display: flex;
+        bottom: 100px; /* Position higher to avoid overlap */
+      }
+      
+      .control-button {
+        width: 60px; /* Smaller controls */
+        height: 60px;
+      }
+      
+      #score-box {
+        min-width: 180px;
+        padding: 5px 15px;
+      }
+      
+      .score {
+        font-size: 28px;
+        padding: 0 10px;
       }
     }
   </style>
@@ -394,10 +419,9 @@
         </div>
         
         <div class="button-row" id="game-mode-buttons">
-          <button id="ai-vs-ai" class="active">AI vs AI</button>
-          <button id="human-vs-ai">Human vs AI</button>
-          <button id="ai-vs-human">AI vs Human</button>
-          <button id="human-vs-human">2 Players</button>
+          <button id="practice-mode">Practice</button>
+          <button id="online-mode">Online Play</button>
+          <button id="quit-button" style="display: none;">Quit Game</button>
         </div>
         
         <div class="controls-help">
@@ -450,15 +474,62 @@
     const POWERUP_SIZE = 20;
     
     // ----- Game State Variables -----
-    let gameState = 'start'; // start, playing, paused, gameOver, finished
-    let maxPoints = 10;
+    let gameState = 'start'; // start, playing, paused, gameOver, finished, waiting
+    let maxPoints = 10; // Set to Infinity for unlimited practice mode
     let gameSpeed = 1;
     let randomnessLevel = 15;
     let consecutiveHits = 0;
+    let isOnlineMode = false;
+    let isWaitingForOpponent = false;
     
     // ----- Background Animation Variables -----
     const particles = [];
     const NUM_PARTICLES = 50;
+    
+    // ----- UI Elements -----
+    const waitingMessage = document.createElement('div');
+    waitingMessage.className = 'game-message waiting-message';
+    waitingMessage.innerHTML = `
+      <h2>Waiting for Opponent</h2>
+      <p>Playing practice mode while searching...</p>
+      <div class="loading-spinner"></div>
+    `;
+    waitingMessage.style.display = 'none';
+    
+    // Add CSS for waiting spinner
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      .waiting-message {
+        background: rgba(0, 20, 40, 0.85);
+        padding: 20px 40px;
+        border-radius: 10px;
+        border: 2px solid var(--primary);
+        box-shadow: 0 0 20px rgba(0, 252, 255, 0.5);
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        pointer-events: none;
+        z-index: 100;
+      }
+      
+      .loading-spinner {
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(0, 252, 255, 0.3);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        margin: 10px auto;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(styleEl);
     
     // ----- Game Objects -----
     let leftPaddle = {
@@ -621,10 +692,9 @@
     document.getElementById('pause-button').addEventListener('click', togglePause);
     
     // Game mode buttons
-    document.getElementById('ai-vs-ai').addEventListener('click', () => setGameMode('ai-vs-ai'));
-    document.getElementById('human-vs-ai').addEventListener('click', () => setGameMode('human-vs-ai'));
-    document.getElementById('ai-vs-human').addEventListener('click', () => setGameMode('ai-vs-human'));
-    document.getElementById('human-vs-human').addEventListener('click', () => setGameMode('human-vs-human'));
+    document.getElementById('practice-mode').addEventListener('click', startPracticeMode);
+    document.getElementById('online-mode').addEventListener('click', startOnlineMode);
+    document.getElementById('quit-button').addEventListener('click', quitGame);
     
     // ----- Game Functions -----
     
@@ -728,35 +798,111 @@
       }
     }
     
-    // Set game mode
-    function setGameMode(mode) {
+    // Start practice mode
+    function startPracticeMode() {
       // Update UI
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
-      document.getElementById(mode).classList.add('active');
+      document.getElementById('practice-mode').classList.add('active');
+      document.getElementById('quit-button').style.display = 'inline-block';
+      
+      // Update game state
+      isOnlineMode = false;
+      isWaitingForOpponent = false;
+      maxPoints = Infinity; // Unlimited score for practice
       
       // Update paddles
-      switch(mode) {
-        case 'ai-vs-ai':
-          leftPaddle.isAI = true;
-          rightPaddle.isAI = true;
-          break;
-        case 'human-vs-ai':
-          leftPaddle.isAI = false;
-          rightPaddle.isAI = true;
-          break;
-        case 'ai-vs-human':
-          leftPaddle.isAI = true;
-          rightPaddle.isAI = false;
-          break;
-        case 'human-vs-human':
-          leftPaddle.isAI = false;
-          rightPaddle.isAI = false;
-          break;
+      leftPaddle.isAI = false; // Human always controls left paddle
+      rightPaddle.isAI = true; // AI controls right paddle
+      
+      // Hide waiting message if visible
+      waitingMessage.style.display = 'none';
+      
+      // Add waiting message to UI
+      if (!document.querySelector('.waiting-message')) {
+        document.getElementById('ui-container').appendChild(waitingMessage);
       }
       
       resetGame();
+      startGame(); // Automatically start the game
+    }
+    
+    // Start online mode
+    function startOnlineMode() {
+      // Update UI
+      document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById('online-mode').classList.add('active');
+      document.getElementById('quit-button').style.display = 'inline-block';
+      
+      // Update game state
+      isOnlineMode = true;
+      isWaitingForOpponent = true;
+      maxPoints = 10; // Reset to standard scoring
+      
+      // Update paddles for practice while waiting
+      leftPaddle.isAI = false; // Human always controls left paddle
+      rightPaddle.isAI = true; // AI controls right paddle
+      
+      // Add waiting message to UI
+      if (!document.querySelector('.waiting-message')) {
+        document.getElementById('ui-container').appendChild(waitingMessage);
+      }
+      waitingMessage.style.display = 'block';
+      
+      // Simulate finding an opponent after random time (in real implementation, this would be a server call)
+      setTimeout(foundOpponent, Math.random() * 5000 + 3000);
+      
+      resetGame();
+      startGame(); // Start practice mode while waiting
+    }
+    
+    // Found opponent handler
+    function foundOpponent() {
+      if (!isWaitingForOpponent) return;
+      
+      // Hide waiting message
+      waitingMessage.style.display = 'none';
+      
+      // Reset for multiplayer game
+      leftPaddle.isAI = false;
+      rightPaddle.isAI = false; // In real implementation, this would be controlled by the server
+      
+      // Show countdown
+      showGameMessage('OPPONENT FOUND!', 'Game starting in 3...');
+      setTimeout(() => showGameMessage('OPPONENT FOUND!', 'Game starting in 2...'), 1000);
+      setTimeout(() => showGameMessage('OPPONENT FOUND!', 'Game starting in 1...'), 2000);
+      setTimeout(() => {
+        hideElement('.game-message');
+        resetGame();
+        startGame();
+        isWaitingForOpponent = false;
+      }, 3000);
+    }
+    
+    // Quit game
+    function quitGame() {
+      // Reset UI
+      document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById('quit-button').style.display = 'none';
+      
+      // Reset game state
+      isOnlineMode = false;
+      isWaitingForOpponent = false;
+      
+      // Hide waiting message
+      if (waitingMessage) {
+        waitingMessage.style.display = 'none';
+      }
+      
+      // Return to start state
+      gameState = 'start';
+      resetGame();
+      showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
     }
     
     // Reset the game
@@ -785,9 +931,18 @@
       updatePowerUpIndicators();
       updateRallyCounter();
       
-      // Show start message
+      // Show appropriate start message
       gameState = 'start';
-      showGameMessage('EXTREME PONG', 'Press START to play');
+      if (isOnlineMode && isWaitingForOpponent) {
+        // Don't show the main message, only the waiting message
+        hideElement('.game-message:not(.waiting-message)');
+      } else if (document.getElementById('quit-button').style.display === 'inline-block') {
+        // Game mode already selected, ready to play
+        showGameMessage('EXTREME PONG', 'Practice Mode - W/S keys to move');
+      } else {
+        // No mode selected yet
+        showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      }
     }
     
     // Reset ball position
@@ -1125,10 +1280,14 @@
         // Right player scores
         rightPaddle.score++;
         
-        // Check for win
-        if (rightPaddle.score >= maxPoints) {
+        // Check for win (only if not in unlimited practice mode)
+        if (maxPoints !== Infinity && rightPaddle.score >= maxPoints) {
           gameState = 'finished';
-          showGameMessage('RIGHT PLAYER WINS!', 'Press RESET to play again');
+          if (isOnlineMode) {
+            showGameMessage('GAME OVER', 'Your opponent won! Press RESET to play again');
+          } else {
+            showGameMessage('GAME OVER', 'AI won! Press RESET to play again');
+          }
         } else {
           resetBall();
         }
@@ -1142,10 +1301,14 @@
         // Left player scores
         leftPaddle.score++;
         
-        // Check for win
-        if (leftPaddle.score >= maxPoints) {
+        // Check for win (only if not in unlimited practice mode)
+        if (maxPoints !== Infinity && leftPaddle.score >= maxPoints) {
           gameState = 'finished';
-          showGameMessage('LEFT PLAYER WINS!', 'Press RESET to play again');
+          if (isOnlineMode) {
+            showGameMessage('YOU WIN!', 'Congratulations! Press RESET to play again');
+          } else {
+            showGameMessage('YOU WIN!', 'You beat the AI! Press RESET to play again');
+          }
         } else {
           resetBall();
         }
@@ -1557,11 +1720,17 @@
       // Initialize background particles
       initParticles();
       
+      // Add waiting message to UI
+      document.getElementById('ui-container').appendChild(waitingMessage);
+      
       // Initialize game
       resetGame();
       
       // Start game loop
       gameLoop();
+      
+      // Show welcome message instead of auto-starting
+      showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
     }
     
     // Start the game
