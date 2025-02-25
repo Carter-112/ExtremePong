@@ -47,6 +47,9 @@
       border: 2px solid var(--primary);
       box-shadow: 0 0 20px rgba(0, 252, 255, 0.5);
       margin-top: 20px;
+      display: block; /* Ensure it's displayed as a block element */
+      z-index: 10; /* Make sure it's above any other elements */
+      position: relative; /* Ensure proper stacking context */
     }
 
     h1 {
@@ -59,6 +62,11 @@
 
     .game-container {
       position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 auto;
+      width: 800px; /* Match canvas width */
     }
 
     .controls {
@@ -638,9 +646,15 @@
   </div>
 
   <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const scores = document.getElementById('scores');
+    // Wait for DOM to fully load before initializing
+    document.addEventListener('DOMContentLoaded', function() {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const scores = document.getElementById('scores');
+      
+      // Ensure canvas is correctly sized
+      canvas.width = 800;
+      canvas.height = 600;
 
     // Common constants
     const POWER_UP_DURATIONS = {
@@ -1397,6 +1411,7 @@
     }
 
     function render() {
+      // Clear the canvas
       ctx.fillStyle = '#000033';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
@@ -1858,6 +1873,8 @@
     // Initialize
     reset();
     render(); // Draw the initial state
+    // Explicitly start the animation loop to ensure rendering continues
+    requestAnimationFrame(loop);
     
     // Settings panel functionality
     function toggleSettingsPanel() {
@@ -2200,6 +2217,9 @@
     
     // Apply initial settings
     applyInitialSettings();
+    
+    // End of DOMContentLoaded event listener
+    });
   </script>
 </body>
 </html>
