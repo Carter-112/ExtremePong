@@ -70,9 +70,11 @@
       box-shadow: 0 0 20px rgba(0, 252, 255, 0.5);
       z-index: 2;
       background-color: rgba(0, 0, 30, 0.6);
-      max-width: 100%;
-      max-height: 80vh;
       width: 85vw; /* Wider on desktop */
+      height: auto;
+      aspect-ratio: 4/3; /* Fixed aspect ratio */
+      max-width: 1200px;
+      max-height: 80vh;
     }
     
     #ui-container {
@@ -105,7 +107,7 @@
     
     #score-box {
       display: flex;
-      justify-content: space-around;
+      justify-content: center;
       align-items: center;
       background: rgba(0, 10, 30, 0.7);
       border: 2px solid var(--primary);
@@ -113,6 +115,7 @@
       padding: 10px 30px;
       box-shadow: 0 0 20px rgba(0, 252, 255, 0.5);
       min-width: 250px;
+      gap: 20px;
     }
     
     .score {
@@ -399,14 +402,20 @@
       }
       
       #game-canvas {
-        max-height: 70vh;
         width: 95vw;
         height: auto;
-        aspect-ratio: 3/4; /* Taller on mobile for vertical screens */
+        aspect-ratio: 1/1; /* Square canvas on mobile for better gameplay */
+        max-height: 70vh;
+        max-width: none;
       }
       
       #controls {
-        bottom: 10px;
+        bottom: 5px;
+        gap: 5px;
+      }
+      
+      .button-row {
+        gap: 5px;
       }
       
       button {
@@ -421,12 +430,13 @@
       
       #mobile-controls {
         display: flex;
-        bottom: 100px; /* Position higher to avoid overlap */
+        bottom: 80px; /* Position higher to avoid overlap */
       }
       
       .control-button {
-        width: 60px; /* Smaller controls */
-        height: 60px;
+        width: 50px; /* Smaller controls */
+        height: 50px;
+        font-size: 18px;
       }
       
       #score-box {
@@ -441,6 +451,8 @@
       
       .settings-panel {
         padding: 8px;
+        width: 90%;
+        max-width: none;
       }
       
       .settings-panel label {
@@ -450,6 +462,11 @@
       
       .settings-panel input[type="range"] {
         width: 70px;
+      }
+      
+      .waiting-message {
+        width: 80%;
+        padding: 10px;
       }
     }
   </style>
@@ -465,6 +482,7 @@
       <div id="score-container">
         <div id="score-box">
           <div id="left-score" class="score">0</div>
+          <div style="color: rgba(255,255,255,0.5); font-size: 24px;">:</div>
           <div id="right-score" class="score">0</div>
         </div>
       </div>
