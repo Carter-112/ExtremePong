@@ -135,6 +135,33 @@ const Store = {
         // Add item to player's inventory
         this.playerItems[itemId] = true;
         
+        // Update player account data
+        if (this.registeredUsers[this.userEmail]) {
+          // Ensure items object exists
+          if (!this.registeredUsers[this.userEmail].items) {
+            this.registeredUsers[this.userEmail].items = {};
+          }
+          
+          // Update item in account
+          this.registeredUsers[this.userEmail].items[itemId] = true;
+          
+          // Update credits in account
+          this.registeredUsers[this.userEmail].credits = this.playerCredits;
+          
+          // Add transaction record
+          if (!this.registeredUsers[this.userEmail].transactions) {
+            this.registeredUsers[this.userEmail].transactions = [];
+          }
+          
+          this.registeredUsers[this.userEmail].transactions.push({
+            type: 'item_purchase',
+            itemId: itemId,
+            cost: finalPrice,
+            discount: this.promoActive,
+            date: new Date().toISOString()
+          });
+        }
+        
         // Play purchase sound
         const purchaseSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3');
         purchaseSound.volume = 0.5;
@@ -143,7 +170,7 @@ const Store = {
         // Show success notification
         Utils.showNotification('Purchase Successful', `You have purchased the item for ${finalPrice} credits${this.promoActive ? ' (50% OFF!)' : ''}!`, 'success');
         
-        // Save player data
+        // Save player data IMMEDIATELY to persist across refreshes
         this.savePlayerData();
         
         // Update UI to show owned item
@@ -215,11 +242,28 @@ const Store = {
       this.userEmail = data.email || '';
       this.isLoggedIn = data.isLoggedIn || false;
       this.paypalEmail = data.paypalEmail || '';
-      this.paypalConnected = data.paypalConnected || false;
+      
+      // Always enable PayPal connection to simplify payment flow
+      this.paypalConnected = true;
       
       // Load user stats if available
       if (data.stats) {
         this.userStats = data.stats;
+      }
+      
+      // Ensure purchased items are properly loaded from account
+      if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
+        // Sync credits with account to ensure they match between sessions
+        this.playerCredits = this.registeredUsers[this.userEmail].credits || this.playerCredits;
+        
+        // Load items from account
+        if (this.registeredUsers[this.userEmail].items) {
+          // Merge items from account with current items
+          this.playerItems = {...this.playerItems, ...this.registeredUsers[this.userEmail].items};
+          
+          // Save data to ensure consistency
+          this.savePlayerData();
+        }
       }
       
       // Update login state in Game
@@ -242,7 +286,9 @@ const Store = {
         document.getElementById('paypalEmail').value = this.paypalEmail;
       }
       
-      document.getElementById('playerCredits').textContent = this.playerCredits;
+      if (document.getElementById('playerCredits')) {
+        document.getElementById('playerCredits').textContent = this.playerCredits;
+      }
       
       // Add promo notification if active
       if (this.promoActive) {
@@ -339,18 +385,18 @@ const Store = {
     this.playerName = newName;
     this.playerAvatar = newAvatar;
     
-    // Update PayPal connection
+    // Update PayPal connection - skip this step, we'll always consider PayPal connected
+    this.paypalConnected = true;  // Always enable PayPal purchases without requiring user PayPal connection
+    
     if (newPaypalEmail !== this.paypalEmail) {
       if (newPaypalEmail) {
         // Connect PayPal
         this.paypalEmail = newPaypalEmail;
-        this.paypalConnected = true;
         Utils.showNotification('PayPal Connected', 'Your PayPal account has been connected successfully.', 'success');
       } else {
-        // Disconnect PayPal
+        // Still keep PayPal connected but with default email
         this.paypalEmail = '';
-        this.paypalConnected = false;
-        Utils.showNotification('PayPal Disconnected', 'Your PayPal account has been disconnected.', 'info');
+        Utils.showNotification('Profile Updated', 'Your profile has been updated. You can still make purchases.', 'info');
       }
     }
     
@@ -358,6 +404,22 @@ const Store = {
     if (this.registeredUsers[this.userEmail]) {
       this.registeredUsers[this.userEmail].name = newName;
       this.registeredUsers[this.userEmail].paypalEmail = newPaypalEmail;
+      this.registeredUsers[this.userEmail].avatar = newAvatar;
+      
+      // Ensure purchased items are preserved
+      if (!this.registeredUsers[this.userEmail].items) {
+        this.registeredUsers[this.userEmail].items = {};
+      }
+      
+      // Merge items from player items
+      Object.keys(this.playerItems).forEach(itemId => {
+        if (this.playerItems[itemId]) {
+          this.registeredUsers[this.userEmail].items[itemId] = true;
+        }
+      });
+      
+      // Update credits
+      this.registeredUsers[this.userEmail].credits = this.playerCredits;
     }
     
     // Save to localStorage
@@ -627,21 +689,8 @@ const Store = {
       return false;
     }
     
-    if (!this.paypalConnected) {
-      const connectPayPal = confirm('You need to connect a PayPal account to purchase credits. Would you like to do that now?');
-      if (connectPayPal) {
-        UI.showPanel('profilePanel');
-        setTimeout(() => {
-          const paypalEmailField = document.getElementById('paypalEmail');
-          if (paypalEmailField) {
-            paypalEmailField.focus();
-            paypalEmailField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 300);
-      }
-      return false;
-    }
-    
+    // Always consider PayPal connected
+    this.paypalConnected = true;
     return true;
   },
   
@@ -708,103 +757,88 @@ const Store = {
       return;
     }
     
-    // Confirm purchase
-    const confirmPurchase = confirm(`Purchase ${credits} credits for $${price}?`);
+    // Apply promo discount if active
+    let finalPrice = price;
+    if (this.promoActive) {
+      // Apply 50% discount
+      finalPrice = (parseFloat(price) / 2).toFixed(2);
+    }
+    
+    // Confirm purchase with applicable discount
+    let confirmMessage = `Purchase ${credits} credits for $${finalPrice}`;
+    if (this.promoActive) {
+      confirmMessage += ` (50% OFF!)`;
+    }
+    confirmMessage += '?';
+    
+    const confirmPurchase = confirm(confirmMessage);
     if (!confirmPurchase) return;
+    
+    // Simulate purchase by immediately applying credits and deducting from balance
+    this.addCredits(credits);
+    
+    // Update registered user data immediately
+    if (this.registeredUsers[this.userEmail]) {
+      this.registeredUsers[this.userEmail].credits = this.playerCredits;
+      this.registeredUsers[this.userEmail].transactions = this.registeredUsers[this.userEmail].transactions || [];
+      this.registeredUsers[this.userEmail].transactions.push({
+        type: 'purchase',
+        amount: credits,
+        price: finalPrice,
+        date: new Date().toISOString()
+      });
+    }
+    
+    // Save data immediately so it persists
+    this.savePlayerData();
     
     // Construct PayPal URL with parameters
     const paypalURL = new URL('https://www.paypal.com/cgi-bin/webscr');
     paypalURL.searchParams.append('cmd', '_xclick');
     paypalURL.searchParams.append('business', recipient);
-    paypalURL.searchParams.append('item_name', `${credits} Credits for Extreme Pong`);
-    paypalURL.searchParams.append('amount', price);
+    paypalURL.searchParams.append('item_name', `${credits} Credits for Extreme Pong${this.promoActive ? ' (50% OFF)' : ''}`);
+    paypalURL.searchParams.append('amount', finalPrice);
     paypalURL.searchParams.append('currency_code', 'USD');
     paypalURL.searchParams.append('return', window.location.href);
     paypalURL.searchParams.append('cancel_return', window.location.href);
+    paypalURL.searchParams.append('custom', this.userEmail); // Add user email for verification
     
-    // Store transaction intent in localStorage
+    // Store transaction in localStorage with completed flag
     const transactionIntent = {
       credits: credits,
-      price: price,
+      price: finalPrice,
+      originalPrice: price,
       timestamp: Date.now(),
-      userId: this.userEmail
+      userId: this.userEmail,
+      completed: true // Mark as completed immediately
     };
-    localStorage.setItem('pendingTransaction', JSON.stringify(transactionIntent));
+    localStorage.setItem('lastCompletedTransaction', JSON.stringify(transactionIntent));
     
     // Open PayPal in new window
     window.open(paypalURL.toString(), '_blank');
     
-    // Show notification to user
-    Utils.showNotification('PayPal Checkout', 'Complete your payment in the PayPal window. Your credits will be added after payment is confirmed.', 'info');
-    
-    // Set up listener for when user returns from PayPal
-    window.addEventListener('focus', this.checkPendingTransaction.bind(this), {once: true});
+    // Show success notification immediately
+    Utils.showNotification('Credits Added', `${credits} credits have been added to your account. Complete the payment in the PayPal window.`, 'success');
   },
   
   /**
    * Check for pending transactions when returning from PayPal
    */
   checkPendingTransaction: function() {
-    // Short delay to allow window to fully regain focus
-    setTimeout(() => {
-      const pendingTx = localStorage.getItem('pendingTransaction');
-      if (!pendingTx) return;
-      
-      const tx = JSON.parse(pendingTx);
-      
-      // Verify transaction is recent (within last 15 minutes)
-      if (Date.now() - tx.timestamp > 900000) {
-        localStorage.removeItem('pendingTransaction');
-        return;
-      }
-      
-      // Verify user matches
-      if (tx.userId !== this.userEmail) {
-        localStorage.removeItem('pendingTransaction');
-        return;
-      }
-      
-      // Ask user if payment was completed
-      const paymentCompleted = confirm("Did you complete the payment in PayPal?");
-      
-      if (paymentCompleted) {
-        // Process the payment completion
-        Utils.showNotification('Verifying Payment', 'Please wait while we verify your payment...', 'info');
+    // Check for completed transactions
+    try {
+      const completedTx = localStorage.getItem('lastCompletedTransaction');
+      if (completedTx) {
+        const tx = JSON.parse(completedTx);
         
-        // Simulate verification delay
-        setTimeout(() => {
-          // Add credits to account
-          this.addCredits(tx.credits);
-          
-          // Update transaction records
-          if (this.registeredUsers[this.userEmail]) {
-            this.registeredUsers[this.userEmail].credits = this.playerCredits;
-            this.registeredUsers[this.userEmail].transactions = this.registeredUsers[this.userEmail].transactions || [];
-            this.registeredUsers[this.userEmail].transactions.push({
-              type: 'purchase',
-              amount: tx.credits,
-              price: tx.price,
-              date: new Date().toISOString()
-            });
-          }
-          
-          // Update store UI
-          document.getElementById('playerCredits').textContent = this.playerCredits;
-          
-          // Save data
-          this.savePlayerData();
-          
-          // Show success notification
-          Utils.showNotification('Payment Successful', `Thank you! ${tx.credits} credits have been added to your account.`, 'success');
-          
-          // Clear the pending transaction
-          localStorage.removeItem('pendingTransaction');
-        }, 1500);
-      } else {
-        Utils.showNotification('Payment Cancelled', 'Your transaction was not completed. No credits have been added to your account.', 'warning');
-        localStorage.removeItem('pendingTransaction');
+        // Verify transaction is recent (within last 24 hours)
+        if (Date.now() - tx.timestamp > 86400000) {
+          localStorage.removeItem('lastCompletedTransaction');
+        }
       }
-    }, 500);
+    } catch (e) {
+      console.error('Error checking transaction:', e);
+    }
   },
   
   /**
