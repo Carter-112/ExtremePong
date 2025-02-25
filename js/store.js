@@ -1,5 +1,8 @@
 // Store & Player Data Management
 const Store = {
+  // Server URL for user data (this would be a real server in production)
+  serverUrl: 'https://cosmic-pong-api.herokuapp.com',
+  
   // Player data
   playerName: 'Player',
   playerAvatar: 'cyan',
@@ -13,6 +16,19 @@ const Store = {
   registeredUsers: {}, // Store registered users
   promoActive: true, // 50% off promotion active
   paypalConnected: false, // Whether PayPal is connected
+  
+  // User stats
+  userStats: {
+    totalGames: 0,
+    wins: 0,
+    losses: 0,
+    rating: 1000,
+    xp: 0,
+    level: 1,
+    highScore: 0,
+    longestStreak: 0,
+    lastLogin: null
+  },
   
   /**
    * Initialize PayPal buttons
@@ -165,13 +181,25 @@ const Store = {
       email: this.userEmail,
       isLoggedIn: this.isLoggedIn,
       paypalEmail: this.paypalEmail,
-      paypalConnected: this.paypalConnected
+      paypalConnected: this.paypalConnected,
+      stats: this.userStats
     };
     
     localStorage.setItem('cosmicPongPlayerData', JSON.stringify(playerData));
     
     // Also save registered users
     localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
+    
+    // In a real implementation, we would also send data to the server
+    // this.syncWithServer();
+  },
+  
+  /**
+   * Sync with server (would be implemented in a real app)
+   */
+  syncWithServer: function() {
+    console.log(`[SERVER] Syncing user data for ${this.userEmail}`);
+    // This would make an API call to the server with the current user data
   },
   
   /**
@@ -196,6 +224,11 @@ const Store = {
       this.isLoggedIn = data.isLoggedIn || false;
       this.paypalEmail = data.paypalEmail || '';
       this.paypalConnected = data.paypalConnected || false;
+      
+      // Load user stats if available
+      if (data.stats) {
+        this.userStats = data.stats;
+      }
       
       // Update login state in Game
       Game.isLoggedIn = this.isLoggedIn;
@@ -238,6 +271,34 @@ const Store = {
           }
         }
       }
+      
+      // Initialize multiplayer if it exists
+      if (typeof Multiplayer !== 'undefined') {
+        Multiplayer.init();
+      }
+      
+      // Update stats UI
+      this.updateStatsUI();
+    }
+  },
+  
+  /**
+   * Update user stats UI
+   */
+  updateStatsUI: function() {
+    // Update profile panel stats if it exists
+    const totalGamesElement = document.querySelector('.stats-total-games');
+    const gamesWonElement = document.querySelector('.stats-games-won');
+    const winStreakElement = document.querySelector('.stats-win-streak');
+    const averageRallyElement = document.querySelector('.stats-average-rally');
+    
+    if (totalGamesElement && this.registeredUsers[this.userEmail]) {
+      const stats = this.registeredUsers[this.userEmail].stats || this.userStats;
+      
+      if (totalGamesElement) totalGamesElement.textContent = stats.totalGames || 0;
+      if (gamesWonElement) gamesWonElement.textContent = stats.wins || 0;
+      if (winStreakElement) winStreakElement.textContent = stats.currentStreak || 0;
+      if (averageRallyElement) averageRallyElement.textContent = stats.averageRally || '0.0';
     }
   },
   
@@ -355,6 +416,17 @@ const Store = {
     this.paypalConnected = !!this.registeredUsers[email].paypalEmail;
     this.isLoggedIn = true;
     
+    // Load user stats if available
+    if (this.registeredUsers[email].stats) {
+      this.userStats = this.registeredUsers[email].stats;
+    }
+    
+    // Update last login time
+    this.registeredUsers[email].lastLogin = new Date().toISOString();
+    if (this.registeredUsers[email].stats) {
+      this.registeredUsers[email].stats.lastLogin = new Date().toISOString();
+    }
+    
     // Update game state
     Game.isLoggedIn = true;
     Game.currentUser = {
@@ -388,6 +460,14 @@ const Store = {
     
     // Update UI
     this.updateLoginUI();
+    
+    // Update stats UI
+    this.updateStatsUI();
+    
+    // Initialize multiplayer
+    if (typeof Multiplayer !== 'undefined') {
+      Multiplayer.init();
+    }
     
     // Offer free credits for new users with no prior credits
     if (this.playerCredits === 0) {
@@ -438,6 +518,20 @@ const Store = {
       return;
     }
     
+    // Create initial stats
+    const initialStats = {
+      totalGames: 0,
+      wins: 0,
+      losses: 0,
+      rating: 1000,
+      xp: 0,
+      level: 1,
+      highScore: 0,
+      longestStreak: 0,
+      currentStreak: 0,
+      averageRally: 0
+    };
+    
     // Register the new user
     this.registeredUsers[email] = {
       email: email,
@@ -446,7 +540,8 @@ const Store = {
       credits: 100, // Give 100 free credits to new users
       items: {},
       paypalEmail: '',
-      registrationDate: new Date().toISOString()
+      registrationDate: new Date().toISOString(),
+      stats: initialStats
     };
     
     // Set current user data
@@ -454,6 +549,7 @@ const Store = {
     this.playerName = name;
     this.playerCredits = 100; // Start with 100 free credits
     this.playerItems = {};
+    this.userStats = initialStats;
     this.isLoggedIn = true;
     
     // Update game state
@@ -471,6 +567,11 @@ const Store = {
     
     // Update UI
     this.updateLoginUI();
+    
+    // Initialize multiplayer
+    if (typeof Multiplayer !== 'undefined') {
+      Multiplayer.init();
+    }
     
     Utils.showNotification('Registration Successful', `Welcome, ${this.playerName}! You've received 100 free credits to get started.`, 'success');
     

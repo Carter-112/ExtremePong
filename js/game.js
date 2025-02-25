@@ -19,6 +19,13 @@ const Game = {
    * Start the game
    */
   startGame: function() {
+    // Check if multiplayer mode requires login
+    if (this.currentGameMode === 'multiplayer' && !this.isLoggedIn) {
+      Utils.showNotification('Login Required', 'You must be logged in to play online. Please login or create an account.', 'warning');
+      UI.showPanel('loginPanel');
+      return;
+    }
+    
     // Hide main menu using UI system
     UI.hidePanel('mainMenu');
     
@@ -46,6 +53,24 @@ const Game = {
     // Connect to multiplayer server if multiplayer mode
     if (Multiplayer.isMultiplayer) {
       Multiplayer.connectToMultiplayerServer();
+    }
+    
+    // Update player names in score display
+    const leftScoreEl = document.querySelector('.player-score.left');
+    const rightScoreEl = document.querySelector('.player-score.right');
+    
+    if (leftScoreEl && !leftScoreEl.hasAttribute('data-name')) {
+      leftScoreEl.setAttribute('data-name', this.isLoggedIn ? Store.playerName : 'Player 1');
+    }
+    
+    if (rightScoreEl && !rightScoreEl.hasAttribute('data-name')) {
+      if (this.currentGameMode === 'ai-vs-ai' || this.currentGameMode === 'human-vs-ai') {
+        rightScoreEl.setAttribute('data-name', 'AI');
+      } else if (this.currentGameMode === 'ai-vs-human') {
+        rightScoreEl.setAttribute('data-name', 'Player 2');
+      } else if (this.currentGameMode === 'human-vs-human') {
+        rightScoreEl.setAttribute('data-name', 'Player 2');
+      }
     }
   },
   
@@ -269,10 +294,13 @@ const Game = {
     // Display game over panel
     UI.showGameOverPanel(winner);
     
-    // Award credits for winning games as player
-    if ((this.currentGameMode === 'human-vs-ai' && winner === 'left') || 
-        (this.currentGameMode === 'ai-vs-human' && winner === 'right') ||
-        (this.currentGameMode === 'multiplayer' && winner === 'left')) {
+    // Handle multiplayer match results
+    if (this.currentGameMode === 'multiplayer' && Multiplayer.isMultiplayer) {
+      Multiplayer.updateMatchResults(winner);
+    } 
+    // Award credits for winning games as player in single player
+    else if ((this.currentGameMode === 'human-vs-ai' && winner === 'left') || 
+             (this.currentGameMode === 'ai-vs-human' && winner === 'right')) {
       const creditsEarned = 50;
       Store.addCredits(creditsEarned);
       Utils.showNotification('Credits Earned', `You earned ${creditsEarned} credits for winning!`, 'success');

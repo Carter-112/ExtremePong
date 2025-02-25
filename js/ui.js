@@ -31,6 +31,380 @@ const UI = {
         panel.style.zIndex = '10';
       }
     });
+    
+    // Create account panel and leaderboard panel
+    this.createAccountSettingsPanel();
+    this.createLeaderboardPanel();
+  },
+  
+  /**
+   * Create account settings panel
+   */
+  createAccountSettingsPanel: function() {
+    // Create account settings panel if it doesn't exist
+    if (!document.getElementById('accountPanel')) {
+      const accountPanel = document.createElement('div');
+      accountPanel.id = 'accountPanel';
+      accountPanel.className = 'ui-panel';
+      accountPanel.style.display = 'none';
+      accountPanel.style.position = 'absolute';
+      accountPanel.style.top = '50%';
+      accountPanel.style.left = '50%';
+      accountPanel.style.transform = 'translate(-50%, -50%)';
+      accountPanel.style.width = '600px';
+      accountPanel.style.maxHeight = '80vh';
+      
+      accountPanel.innerHTML = `
+        <div class="panel-header">
+          <h2 class="panel-title">Account Settings</h2>
+          <button class="cyber-button" onclick="UI.hidePanel('accountPanel')" style="min-width: auto; padding: 5px 10px;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="panel-content">
+          <div class="settings-section">
+            <h3>Account Information</h3>
+            <div class="settings-row">
+              <label>Email:</label>
+              <span id="account-email">${Store.userEmail || 'Not logged in'}</span>
+            </div>
+            
+            <div class="settings-row">
+              <label for="account-name">Display Name:</label>
+              <input type="text" id="account-name" value="${Store.playerName || 'Player'}" style="width: 200px;">
+            </div>
+            
+            <div class="settings-row">
+              <label for="account-avatar">Avatar Color:</label>
+              <select id="account-avatar">
+                <option value="cyan" ${Store.playerAvatar === 'cyan' ? 'selected' : ''}>Cyan</option>
+                <option value="magenta" ${Store.playerAvatar === 'magenta' ? 'selected' : ''}>Magenta</option>
+                <option value="yellow" ${Store.playerAvatar === 'yellow' ? 'selected' : ''}>Yellow</option>
+                <option value="green" ${Store.playerAvatar === 'green' ? 'selected' : ''}>Green</option>
+                <option value="red" ${Store.playerAvatar === 'red' ? 'selected' : ''}>Red</option>
+                <option value="blue" ${Store.playerAvatar === 'blue' ? 'selected' : ''}>Blue</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <h3>Game Statistics</h3>
+            <div class="stats-grid">
+              <div class="stats-item">
+                <div class="stats-label">Total Games</div>
+                <div class="stats-value stats-total-games">0</div>
+              </div>
+              <div class="stats-item">
+                <div class="stats-label">Games Won</div>
+                <div class="stats-value stats-games-won">0</div>
+              </div>
+              <div class="stats-item">
+                <div class="stats-label">Win Streak</div>
+                <div class="stats-value stats-win-streak">0</div>
+              </div>
+              <div class="stats-item">
+                <div class="stats-label">Average Rally</div>
+                <div class="stats-value stats-average-rally">0.0</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <h3>Payment Settings</h3>
+            <div class="settings-row">
+              <label for="account-paypal">PayPal Email:</label>
+              <input type="email" id="account-paypal" value="${Store.paypalEmail || ''}" placeholder="Enter PayPal email" style="width: 250px;">
+            </div>
+            <p style="color: #999; font-size: 0.9em; margin-top: 5px;">
+              <i class="fas fa-info-circle"></i> Required to purchase credits. We never store your actual PayPal information.
+            </p>
+          </div>
+          
+          <div class="settings-section">
+            <h3>Security</h3>
+            <div class="settings-row">
+              <label for="account-current-password">Current Password:</label>
+              <input type="password" id="account-current-password" placeholder="Enter current password" style="width: 250px;">
+            </div>
+            
+            <div class="settings-row">
+              <label for="account-new-password">New Password:</label>
+              <input type="password" id="account-new-password" placeholder="Enter new password" style="width: 250px;">
+            </div>
+            
+            <div class="settings-row">
+              <label for="account-confirm-password">Confirm Password:</label>
+              <input type="password" id="account-confirm-password" placeholder="Confirm new password" style="width: 250px;">
+            </div>
+          </div>
+          
+          <div class="btn-group">
+            <button class="cyber-button" onclick="UI.saveAccountSettings()">Save Changes</button>
+            <button class="cyber-button warning" onclick="Store.logout()">Logout</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(accountPanel);
+      
+      // Add CSS for stats grid
+      const statsStyle = document.createElement('style');
+      statsStyle.textContent = `
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          grid-gap: 15px;
+          margin-top: 10px;
+        }
+        
+        .stats-item {
+          background: rgba(0, 127, 255, 0.1);
+          border: 1px solid var(--secondary);
+          border-radius: 5px;
+          padding: 10px;
+          text-align: center;
+        }
+        
+        .stats-label {
+          font-size: 14px;
+          color: #999;
+          margin-bottom: 5px;
+        }
+        
+        .stats-value {
+          font-size: 20px;
+          font-weight: bold;
+          color: var(--tertiary);
+        }
+      `;
+      document.head.appendChild(statsStyle);
+      
+      // Add event listener for close button
+      const closeButton = accountPanel.querySelector('.panel-header .cyber-button');
+      closeButton.addEventListener('click', function() {
+        UI.hidePanel('accountPanel');
+        if (UI.activePanel === 'accountPanel') {
+          UI.showPanel('mainMenu');
+        }
+      });
+    }
+  },
+  
+  /**
+   * Create leaderboard panel
+   */
+  createLeaderboardPanel: function() {
+    // Create leaderboard panel if it doesn't exist
+    if (!document.getElementById('leaderboardPanel')) {
+      const leaderboardPanel = document.createElement('div');
+      leaderboardPanel.id = 'leaderboardPanel';
+      leaderboardPanel.className = 'ui-panel';
+      leaderboardPanel.style.display = 'none';
+      leaderboardPanel.style.position = 'absolute';
+      leaderboardPanel.style.top = '50%';
+      leaderboardPanel.style.left = '50%';
+      leaderboardPanel.style.transform = 'translate(-50%, -50%)';
+      leaderboardPanel.style.width = '800px';
+      leaderboardPanel.style.maxHeight = '80vh';
+      
+      leaderboardPanel.innerHTML = `
+        <div class="panel-header">
+          <h2 class="panel-title">Global Leaderboard</h2>
+          <button class="cyber-button" onclick="UI.hidePanel('leaderboardPanel')" style="min-width: auto; padding: 5px 10px;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="panel-content">
+          <div class="settings-section">
+            <div class="leaderboard-container">
+              <div id="leaderboardContent" class="leaderboard-content">
+                <!-- Leaderboard rows will be populated here -->
+              </div>
+            </div>
+            
+            <p style="text-align: center; margin-top: 15px; color: var(--secondary);">
+              <i class="fas fa-info-circle"></i> Win more games to improve your ranking!
+            </p>
+          </div>
+          
+          <div class="btn-group">
+            <button class="cyber-button" onclick="Multiplayer.fetchLeaderboard()">Refresh</button>
+            <button class="cyber-button secondary" onclick="UI.showPanel('multiplayerPanel')">Find Match</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(leaderboardPanel);
+      
+      // Add CSS for leaderboard
+      const leaderboardStyle = document.createElement('style');
+      leaderboardStyle.textContent = `
+        .leaderboard-container {
+          width: 100%;
+          border: 1px solid var(--secondary);
+          background: rgba(0, 0, 20, 0.5);
+          border-radius: 5px;
+          padding: 0;
+          max-height: 500px;
+          overflow-y: auto;
+        }
+        
+        .leaderboard-content {
+          width: 100%;
+        }
+        
+        .leaderboard-row {
+          display: flex;
+          padding: 10px 15px;
+          border-bottom: 1px solid rgba(0, 200, 255, 0.3);
+          align-items: center;
+        }
+        
+        .leaderboard-row.header {
+          background: var(--secondary);
+          color: #000;
+          font-weight: bold;
+          position: sticky;
+          top: 0;
+          z-index: 1;
+        }
+        
+        .leaderboard-row.current-user {
+          background: rgba(0, 255, 255, 0.2);
+        }
+        
+        .leaderboard-rank {
+          width: 10%;
+          text-align: center;
+          font-weight: bold;
+        }
+        
+        .leaderboard-name {
+          width: 40%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .leaderboard-score {
+          width: 25%;
+          text-align: center;
+        }
+        
+        .leaderboard-wins {
+          width: 25%;
+          text-align: center;
+        }
+      `;
+      document.head.appendChild(leaderboardStyle);
+      
+      // Add event listener for close button
+      const closeButton = leaderboardPanel.querySelector('.panel-header .cyber-button');
+      closeButton.addEventListener('click', function() {
+        UI.hidePanel('leaderboardPanel');
+        if (UI.activePanel === 'leaderboardPanel') {
+          UI.showPanel('mainMenu');
+        }
+      });
+    }
+  },
+  
+  /**
+   * Save account settings
+   */
+  saveAccountSettings: function() {
+    if (!Store.isLoggedIn) {
+      Utils.showNotification('Not Logged In', 'You must be logged in to save account settings.', 'error');
+      return;
+    }
+    
+    const nameInput = document.getElementById('account-name');
+    const avatarInput = document.getElementById('account-avatar');
+    const paypalInput = document.getElementById('account-paypal');
+    const currentPassInput = document.getElementById('account-current-password');
+    const newPassInput = document.getElementById('account-new-password');
+    const confirmPassInput = document.getElementById('account-confirm-password');
+    
+    // Update name and avatar
+    if (nameInput && avatarInput) {
+      Store.playerName = nameInput.value;
+      Store.playerAvatar = avatarInput.value;
+      
+      // Update player name in multiplayer UI
+      const scoreLeft = document.querySelector('.player-score.left');
+      if (scoreLeft) {
+        scoreLeft.setAttribute('data-name', Store.playerName);
+      }
+      
+      // Update registered user data
+      if (Store.registeredUsers[Store.userEmail]) {
+        Store.registeredUsers[Store.userEmail].name = nameInput.value;
+      }
+    }
+    
+    // Update PayPal email
+    if (paypalInput) {
+      const newPayPalEmail = paypalInput.value;
+      
+      // Basic email validation if provided
+      if (newPayPalEmail && (!newPayPalEmail.includes('@') || !newPayPalEmail.includes('.'))) {
+        Utils.showNotification('Invalid Email', 'Please enter a valid PayPal email address.', 'error');
+        return;
+      }
+      
+      Store.paypalEmail = newPayPalEmail;
+      Store.paypalConnected = !!newPayPalEmail;
+      
+      // Update registered user data
+      if (Store.registeredUsers[Store.userEmail]) {
+        Store.registeredUsers[Store.userEmail].paypalEmail = newPayPalEmail;
+      }
+    }
+    
+    // Update password if provided
+    if (currentPassInput && newPassInput && confirmPassInput) {
+      const currentPass = currentPassInput.value;
+      const newPass = newPassInput.value;
+      const confirmPass = confirmPassInput.value;
+      
+      if (currentPass && newPass) {
+        // Verify current password
+        if (Store.registeredUsers[Store.userEmail] && 
+            Store.registeredUsers[Store.userEmail].password !== currentPass) {
+          Utils.showNotification('Password Error', 'Current password is incorrect.', 'error');
+          return;
+        }
+        
+        // Verify new password
+        if (newPass.length < 6) {
+          Utils.showNotification('Password Error', 'New password must be at least 6 characters long.', 'error');
+          return;
+        }
+        
+        // Verify confirm password
+        if (newPass !== confirmPass) {
+          Utils.showNotification('Password Error', 'New passwords do not match.', 'error');
+          return;
+        }
+        
+        // Update password
+        Store.registeredUsers[Store.userEmail].password = newPass;
+        
+        // Clear password fields
+        currentPassInput.value = '';
+        newPassInput.value = '';
+        confirmPassInput.value = '';
+        
+        Utils.showNotification('Password Updated', 'Your password has been updated successfully.', 'success');
+      }
+    }
+    
+    // Save changes
+    Store.savePlayerData();
+    
+    Utils.showNotification('Settings Saved', 'Your account settings have been updated.', 'success');
+    
+    // Hide panel
+    this.hidePanel('accountPanel');
   },
   
   /**
