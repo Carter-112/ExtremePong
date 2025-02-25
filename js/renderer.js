@@ -18,10 +18,14 @@ const Renderer = {
     // Get the canvas
     const canvas = document.getElementById('gameCanvas');
     
+    // Create scene container for game objects
+    this.gameScene = new THREE.Group();
+    
     // Create Three.js scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000033);
     this.scene.fog = new THREE.FogExp2(0x000033, 0.01);
+    this.scene.add(this.gameScene);
     
     // Create camera - using orthographic for 2.5D effect
     const aspect = window.innerWidth / window.innerHeight;
