@@ -126,8 +126,8 @@ function initLoading() {
     }
   }, 80);
   
-  // Initialize PayPal buttons
-  Store.initPayPalButtons();
+  // Initialize Store with payment processing
+  Store.init();
   
   // Set up event listeners for slider values
   UI.setupSliderListeners();
@@ -162,8 +162,7 @@ function initGame() {
   // Initialize audio
   Audio.init();
   
-  // Load player data
-  Store.loadPlayerData();
+  // Store is initialized in initLoading
   
   // Enter the animation loop
   animate();

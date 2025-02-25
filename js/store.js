@@ -31,22 +31,14 @@ const Store = {
   },
   
   /**
-   * Initialize PayPal buttons
+   * Initialize the Store module
    */
-  initPayPalButtons: function() {
-    // Replace PayPal buttons with custom buttons that trigger our own flow
-    this.replacePayPalButtons();
+  init: function() {
+    // Check for pending transactions when page loads
+    this.checkPendingTransaction();
     
-    // Set up event listeners for custom PayPal buttons
-    document.querySelectorAll('.custom-paypal-button').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const creditsAmount = e.currentTarget.getAttribute('data-credits');
-        const price = e.currentTarget.getAttribute('data-price');
-        
-        // Process the transaction
-        this.confirmTransaction(parseInt(creditsAmount), price);
-      });
-    });
+    // Load saved player data
+    this.loadPlayerData();
   },
   
   /**
@@ -700,6 +692,119 @@ const Store = {
     }, 1500);
     
     return true;
+  },
+  
+  /**
+   * Initiate PayPal payment with specific amount, price and recipient
+   * @param {number} credits - Amount of credits to purchase
+   * @param {string} price - Price in USD
+   * @param {string} recipient - PayPal recipient email
+   */
+  initiatePaypalPayment: function(credits, price, recipient) {
+    // Check login status first
+    if (!this.isLoggedIn) {
+      Utils.showNotification('Login Required', 'Please log in or create an account before making a purchase.', 'warning');
+      UI.showPanel('loginPanel');
+      return;
+    }
+    
+    // Confirm purchase
+    const confirmPurchase = confirm(`Purchase ${credits} credits for $${price}?`);
+    if (!confirmPurchase) return;
+    
+    // Construct PayPal URL with parameters
+    const paypalURL = new URL('https://www.paypal.com/cgi-bin/webscr');
+    paypalURL.searchParams.append('cmd', '_xclick');
+    paypalURL.searchParams.append('business', recipient);
+    paypalURL.searchParams.append('item_name', `${credits} Credits for Extreme Pong`);
+    paypalURL.searchParams.append('amount', price);
+    paypalURL.searchParams.append('currency_code', 'USD');
+    paypalURL.searchParams.append('return', window.location.href);
+    paypalURL.searchParams.append('cancel_return', window.location.href);
+    
+    // Store transaction intent in localStorage
+    const transactionIntent = {
+      credits: credits,
+      price: price,
+      timestamp: Date.now(),
+      userId: this.userEmail
+    };
+    localStorage.setItem('pendingTransaction', JSON.stringify(transactionIntent));
+    
+    // Open PayPal in new window
+    window.open(paypalURL.toString(), '_blank');
+    
+    // Show notification to user
+    Utils.showNotification('PayPal Checkout', 'Complete your payment in the PayPal window. Your credits will be added after payment is confirmed.', 'info');
+    
+    // Set up listener for when user returns from PayPal
+    window.addEventListener('focus', this.checkPendingTransaction.bind(this), {once: true});
+  },
+  
+  /**
+   * Check for pending transactions when returning from PayPal
+   */
+  checkPendingTransaction: function() {
+    // Short delay to allow window to fully regain focus
+    setTimeout(() => {
+      const pendingTx = localStorage.getItem('pendingTransaction');
+      if (!pendingTx) return;
+      
+      const tx = JSON.parse(pendingTx);
+      
+      // Verify transaction is recent (within last 15 minutes)
+      if (Date.now() - tx.timestamp > 900000) {
+        localStorage.removeItem('pendingTransaction');
+        return;
+      }
+      
+      // Verify user matches
+      if (tx.userId !== this.userEmail) {
+        localStorage.removeItem('pendingTransaction');
+        return;
+      }
+      
+      // Ask user if payment was completed
+      const paymentCompleted = confirm("Did you complete the payment in PayPal?");
+      
+      if (paymentCompleted) {
+        // Process the payment completion
+        Utils.showNotification('Verifying Payment', 'Please wait while we verify your payment...', 'info');
+        
+        // Simulate verification delay
+        setTimeout(() => {
+          // Add credits to account
+          this.addCredits(tx.credits);
+          
+          // Update transaction records
+          if (this.registeredUsers[this.userEmail]) {
+            this.registeredUsers[this.userEmail].credits = this.playerCredits;
+            this.registeredUsers[this.userEmail].transactions = this.registeredUsers[this.userEmail].transactions || [];
+            this.registeredUsers[this.userEmail].transactions.push({
+              type: 'purchase',
+              amount: tx.credits,
+              price: tx.price,
+              date: new Date().toISOString()
+            });
+          }
+          
+          // Update store UI
+          document.getElementById('playerCredits').textContent = this.playerCredits;
+          
+          // Save data
+          this.savePlayerData();
+          
+          // Show success notification
+          Utils.showNotification('Payment Successful', `Thank you! ${tx.credits} credits have been added to your account.`, 'success');
+          
+          // Clear the pending transaction
+          localStorage.removeItem('pendingTransaction');
+        }, 1500);
+      } else {
+        Utils.showNotification('Payment Cancelled', 'Your transaction was not completed. No credits have been added to your account.', 'warning');
+        localStorage.removeItem('pendingTransaction');
+      }
+    }, 500);
   },
   
   /**
