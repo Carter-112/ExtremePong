@@ -240,6 +240,12 @@ function addInteractionListeners() {
     });
   });
   
+  // Add explicit event listener for the Play Game button
+  document.querySelector('.cyber-button[onclick="Game.startGame()"]').addEventListener('click', function() {
+    console.log('Play button clicked, changing game state to playing');
+    Game.startGame();
+  });
+  
   // Make store items interactive
   document.querySelectorAll('.store-item').forEach(item => {
     item.addEventListener('mouseenter', function() {

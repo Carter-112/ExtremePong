@@ -34,6 +34,7 @@ const Game = {
     
     // Start the game
     this.gameState = 'playing';
+    console.log('Game state changed to:', this.gameState);
     
     // Show score display
     document.querySelector('.score-container').style.display = 'flex';

@@ -275,7 +275,9 @@ const Physics = {
         Utils.createScoreEffect(Game.rightPaddle.userData.score, 'right');
         
         // Reset for next round
-        Game.resetBall();
+        Game.gameState = 'gameOver';
+        console.log('Game state changed to: gameOver (temporary state for ball reset)');
+        Game.gameOverTime = Date.now();
         this.consecutiveHitCount = 0;
         
         // Check for game end
@@ -316,7 +318,9 @@ const Physics = {
         Utils.createScoreEffect(Game.leftPaddle.userData.score, 'left');
         
         // Reset for next round
-        Game.resetBall();
+        Game.gameState = 'gameOver';
+        console.log('Game state changed to: gameOver (temporary state for ball reset)');
+        Game.gameOverTime = Date.now();
         this.consecutiveHitCount = 0;
         
         // Check for game end
