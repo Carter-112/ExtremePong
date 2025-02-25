@@ -68,7 +68,7 @@
       <div id="gameModePanel" class="ui-panel" style="display:none;">
         <div class="panel-header">
           <h2 class="panel-title">Game Mode</h2>
-          <button class="cyber-button" onclick="UI.togglePanel('gameModePanel')" style="min-width: auto; padding: 5px 10px;">
+          <button class="cyber-button" onclick="hideGameModePanel()" style="min-width: auto; padding: 5px 10px;">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -612,7 +612,7 @@
             <h3 class="store-item-title">500 Credits</h3>
             <p class="store-item-description">Get 500 credits to spend on customizations and power-ups.</p>
             <div class="store-item-price">$4.99 USD</div>
-            <div id="paypal-500-container"></div>
+            <button class="cyber-button" onclick="window.open('https://www.paypal.com')">Buy Now</button>
           </div>
           
           <div class="store-item">
@@ -623,7 +623,7 @@
             <h3 class="store-item-title">1200 Credits</h3>
             <p class="store-item-description">Get 1200 credits (20% bonus) to spend in the store.</p>
             <div class="store-item-price">$9.99 USD</div>
-            <div id="paypal-1200-container"></div>
+            <button class="cyber-button" onclick="window.open('https://www.paypal.com')">Buy Now</button>
           </div>
           
           <div class="store-item">
@@ -635,7 +635,7 @@
             <h3 class="store-item-title">3000 Credits</h3>
             <p class="store-item-description">Get 3000 credits (50% bonus) to spend in the store.</p>
             <div class="store-item-price">$19.99 USD</div>
-            <div id="paypal-3000-container"></div>
+            <button class="cyber-button" onclick="window.open('https://www.paypal.com')">Buy Now</button>
           </div>
         </div>
       </div>
@@ -656,7 +656,6 @@
         <p>Move your paddle to hit the ball and prevent it from passing your side of the arena.</p>
         <div class="controls-help">
           <p>Left Paddle: <span class="key">W</span> (up) and <span class="key">S</span> (down)</p>
-          <p>Right Paddle: <span class="key">↑</span> (up) and <span class="key">↓</span> (down)</p>
           <p>Pause Game: <span class="key">ESC</span> or <span class="key">P</span></p>
         </div>
       </div>
@@ -882,7 +881,7 @@
     function startGame() {
       // Show game mode selection panel
       const gameModePanel = document.createElement('div');
-      gameModePanel.id = 'gameModePanel';
+      gameModePanel.id = 'gameModeSelectionPanel';
       gameModePanel.className = 'ui-panel';
       gameModePanel.style.position = 'absolute';
       gameModePanel.style.top = '50%';
@@ -920,7 +919,7 @@
     
     // Hide the game mode panel
     function hideGameModePanel() {
-      const panel = document.querySelector('body > .ui-panel');
+      const panel = document.getElementById('gameModeSelectionPanel');
       if (panel) {
         panel.remove();
       }
