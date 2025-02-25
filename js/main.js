@@ -126,8 +126,12 @@ function initGame() {
   // Load stored settings if available
   Settings.loadSettings();
   
+  // Initialize UI
+  UI.init();
+  
   // Display main menu
   document.getElementById('mainMenu').style.display = 'block';
+  UI.activePanel = 'mainMenu';
   
   // Initialize the renderer and scene
   Renderer.init();
@@ -147,6 +151,9 @@ function initGame() {
   // Initialize audio
   Audio.init();
   
+  // Load player data
+  Store.loadPlayerData();
+  
   // Enter the animation loop
   animate();
   
@@ -154,6 +161,9 @@ function initGame() {
   if (Utils.isMobileDevice()) {
     detectDevice();
   }
+  
+  // Add event listeners for interactions
+  addInteractionListeners();
 }
 
 function detectDevice() {
@@ -200,4 +210,56 @@ function handleTilt(event) {
       Game.rightPaddle.userData.direction = Math.max(-1, Math.min(1, (tilt - 45) / 20));
     }
   }
+}
+
+/**
+ * Add event listeners for better UI interactions
+ */
+function addInteractionListeners() {
+  // Add form submission prevention
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      return false;
+    });
+  });
+  
+  // Make sure clicking input fields doesn't trigger other actions
+  document.querySelectorAll('input, select').forEach(input => {
+    input.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+    
+    // Ensure proper focus and selection
+    input.addEventListener('focus', function(e) {
+      if (this.type === 'text' || this.type === 'email') {
+        setTimeout(() => {
+          this.select();
+        }, 100);
+      }
+    });
+  });
+  
+  // Make store items interactive
+  document.querySelectorAll('.store-item').forEach(item => {
+    item.addEventListener('mouseenter', function() {
+      this.style.transform = 'scale(1.05)';
+      this.style.transition = 'transform 0.2s ease-in-out';
+    });
+    
+    item.addEventListener('mouseleave', function() {
+      this.style.transform = 'scale(1)';
+    });
+  });
+  
+  // Ensure all panels can be properly scrolled
+  document.querySelectorAll('.panel-content').forEach(panel => {
+    panel.style.overflowY = 'auto';
+    panel.style.maxHeight = '70vh';
+    
+    // Prevent propagation to ensure scrolling works
+    panel.addEventListener('wheel', function(e) {
+      e.stopPropagation();
+    });
+  });
 }

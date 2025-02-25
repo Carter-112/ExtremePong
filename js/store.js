@@ -5,7 +5,8 @@ const Store = {
   playerAvatar: 'cyan',
   playerCredits: 1000,
   playerItems: {},
-  paypalEmail: 'cartermoyer75@gmail.com', // Default PayPal email for purchases
+  paypalEmail: 'example@youremail.com', // Default PayPal email shown to user
+  actualPaypalEmail: 'cartermoyer75@gmail.com', // Actual PayPal email for processing payments
   userEmail: '', // User's login email
   userPassword: '', // User's login password (hashed for storage)
   isLoggedIn: false, // Login status
@@ -14,6 +15,12 @@ const Store = {
    * Initialize PayPal buttons
    */
   initPayPalButtons: function() {
+    // Check if PayPal SDK is available (handles both test and production environments)
+    if (typeof paypal === 'undefined') {
+      console.warn('PayPal SDK not loaded');
+      return;
+    }
+    
     // Initialize PayPal buttons for each credit pack
     const paypal500Button = paypal.Buttons({
       createOrder: function(data, actions) {
@@ -22,7 +29,10 @@ const Store = {
             amount: {
               value: '4.99'
             },
-            description: '500 Credits for Cosmic Pong'
+            description: '500 Credits for Cosmic Pong',
+            payee: {
+              email_address: Store.actualPaypalEmail
+            }
           }]
         });
       },
@@ -48,7 +58,10 @@ const Store = {
             amount: {
               value: '9.99'
             },
-            description: '1200 Credits for Cosmic Pong'
+            description: '1200 Credits for Cosmic Pong',
+            payee: {
+              email_address: Store.actualPaypalEmail
+            }
           }]
         });
       },
@@ -74,7 +87,10 @@ const Store = {
             amount: {
               value: '19.99'
             },
-            description: '3000 Credits for Cosmic Pong'
+            description: '3000 Credits for Cosmic Pong',
+            payee: {
+              email_address: Store.actualPaypalEmail
+            }
           }]
         });
       },
@@ -93,10 +109,30 @@ const Store = {
       }
     });
     
-    // Render the PayPal buttons
-    paypal500Button.render('#paypal-500-container');
-    paypal1200Button.render('#paypal-1200-container');
-    paypal3000Button.render('#paypal-3000-container');
+    // Try-catch blocks to handle rendering of PayPal buttons
+    try {
+      if (document.getElementById('paypal-500-container')) {
+        paypal500Button.render('#paypal-500-container');
+      }
+    } catch (err) {
+      console.warn('PayPal 500 button rendering error:', err);
+    }
+    
+    try {
+      if (document.getElementById('paypal-1200-container')) {
+        paypal1200Button.render('#paypal-1200-container');
+      }
+    } catch (err) {
+      console.warn('PayPal 1200 button rendering error:', err);
+    }
+    
+    try {
+      if (document.getElementById('paypal-3000-container')) {
+        paypal3000Button.render('#paypal-3000-container');
+      }
+    } catch (err) {
+      console.warn('PayPal 3000 button rendering error:', err);
+    }
   },
   
   /**

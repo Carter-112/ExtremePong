@@ -1,11 +1,61 @@
 // UI Management 
 const UI = {
+  // Track currently active panel
+  activePanel: null,
+  
+  /**
+   * Initialize UI
+   */
+  init: function() {
+    // Hide score display at start
+    document.querySelector('.score-container').style.display = 'none';
+    
+    // Add event listeners for all close buttons
+    document.querySelectorAll('.panel-header .cyber-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const panel = this.closest('.ui-panel');
+        if (panel && panel.id !== 'mainMenu') {
+          UI.hidePanel(panel.id);
+          
+          // If we're hiding the active panel, show main menu
+          if (UI.activePanel === panel.id) {
+            UI.showPanel('mainMenu');
+          }
+        }
+      });
+    });
+    
+    // Set z-index for proper layering
+    document.querySelectorAll('.ui-panel').forEach(panel => {
+      if (panel.id !== 'mainMenu') {
+        panel.style.zIndex = '10';
+      }
+    });
+  },
+  
   /**
    * Show a specific panel by ID
    * @param {string} panelId - The ID of the panel to show
    */
   showPanel: function(panelId) {
+    // Hide currently active panel
+    if (this.activePanel && this.activePanel !== 'mainMenu') {
+      document.getElementById(this.activePanel).style.display = 'none';
+    }
+    
+    // If showing a panel other than main menu, hide main menu
+    if (panelId !== 'mainMenu' && this.activePanel === 'mainMenu') {
+      document.getElementById('mainMenu').style.display = 'none';
+    }
+    
+    // Show requested panel
     document.getElementById(panelId).style.display = 'block';
+    
+    // Update active panel
+    this.activePanel = panelId;
+    
+    // Ensure proper z-index
+    document.getElementById(panelId).style.zIndex = '10';
   },
   
   /**
@@ -14,6 +64,16 @@ const UI = {
    */
   hidePanel: function(panelId) {
     document.getElementById(panelId).style.display = 'none';
+    
+    // Reset active panel if hiding the active one
+    if (this.activePanel === panelId) {
+      this.activePanel = null;
+    }
+    
+    // Show main menu if hiding a panel and no other panel is active
+    if (this.activePanel === null && Game.gameState === 'menu') {
+      this.showPanel('mainMenu');
+    }
   },
   
   /**
@@ -22,7 +82,11 @@ const UI = {
    */
   togglePanel: function(panelId) {
     const panel = document.getElementById(panelId);
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'none') {
+      this.showPanel(panelId);
+    } else {
+      this.hidePanel(panelId);
+    }
   },
   
   /**

@@ -19,14 +19,20 @@ const Game = {
    * Start the game
    */
   startGame: function() {
-    // Hide main menu
-    document.getElementById('mainMenu').style.display = 'none';
+    // Hide main menu using UI system
+    UI.hidePanel('mainMenu');
     
     // Reset game state
     this.resetGame();
     
     // Start the game
     this.gameState = 'playing';
+    
+    // Show score display
+    document.querySelector('.score-container').style.display = 'flex';
+    
+    // Update score display
+    UI.updateScoreDisplay();
     
     // Play background music if enabled
     Audio.startMusic();
@@ -308,8 +314,14 @@ const Game = {
     this.resetGame();
     this.gameState = 'menu';
     
-    // Show main menu
-    document.getElementById('mainMenu').style.display = 'block';
+    // Hide score display
+    document.querySelector('.score-container').style.display = 'none';
+    
+    // Hide mobile controls if shown
+    document.getElementById('mobileControls').style.display = 'none';
+    
+    // Show main menu using UI system
+    UI.showPanel('mainMenu');
   },
   
   /**
