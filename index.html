@@ -108,7 +108,7 @@
     </div>
     <div class="panel-content">
       <div class="btn-group">
-        <button class="cyber-button" id="playGameButton" onclick="window.location.href='pong_game.html#menu'">PLAY GAME</button>
+        <button class="cyber-button" id="playGameButton" onclick="startGame()">PLAY GAME</button>
         <button class="cyber-button" onclick="UI.showPanel('settingsPanel')">SETTINGS</button>
         <button class="cyber-button secondary" onclick="UI.showPanel('multiplayerPanel')">MULTIPLAYER</button>
         <button class="cyber-button secondary" onclick="UI.showPanel('storePanel')">STORE</button>
@@ -836,5 +836,56 @@
   <script src="js/game.js"></script>
   <script src="js/deployment.js"></script>
   <script src="js/main.js"></script>
+  
+  <!-- Game launcher script -->
+  <script>
+    // Function to launch the game with selected mode
+    function startGame() {
+      // Show game mode selection panel
+      const gameModePanel = document.createElement('div');
+      gameModePanel.className = 'ui-panel';
+      gameModePanel.style.position = 'absolute';
+      gameModePanel.style.top = '50%';
+      gameModePanel.style.left = '50%';
+      gameModePanel.style.transform = 'translate(-50%, -50%)';
+      gameModePanel.style.width = '500px';
+      gameModePanel.style.zIndex = '1000';
+      
+      gameModePanel.innerHTML = `
+        <div class="panel-header">
+          <h2 class="panel-title">Select Game Mode</h2>
+          <button class="cyber-button" onclick="hideGameModePanel()" style="min-width: auto; padding: 5px 10px;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="panel-content">
+          <div class="btn-group" style="display: flex; flex-direction: column; gap: 15px;">
+            <button class="cyber-button" onclick="launchGame('offline')">OFFLINE MODE</button>
+            <button class="cyber-button secondary" onclick="launchGame('online')">ONLINE MULTIPLAYER</button>
+          </div>
+          
+          <div class="mode-description" style="margin-top: 20px; text-align: center; font-size: 14px;">
+            <p><strong>Offline Mode:</strong> Practice against AI with customizable settings</p>
+            <p><strong>Online Multiplayer:</strong> Play against real opponents from around the world</p>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(gameModePanel);
+    }
+    
+    // Hide the game mode panel
+    function hideGameModePanel() {
+      const panel = document.querySelector('body > .ui-panel');
+      if (panel) {
+        panel.remove();
+      }
+    }
+    
+    // Launch the game with the selected mode
+    function launchGame(mode) {
+      window.location.href = `pong_game.html#${mode}`;
+    }
+  </script>
 </body>
 </html>

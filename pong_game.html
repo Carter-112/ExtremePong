@@ -529,7 +529,7 @@
         <div class="button-row" id="game-mode-buttons">
           <button id="offline-mode">Offline Play</button>
           <button id="online-mode">Online Play</button>
-          <button id="quit-button" style="display: none;">Return to Menu</button>
+          <button id="quit-button" style="display: none;" onclick="window.location.href='index.html'">Back to Home</button>
           <button id="share-code" style="display: none;"><i class="fas fa-share-alt"></i> Share Code</button>
         </div>
         
@@ -561,8 +561,19 @@
             </label>
           </div>
           <div class="settings-row">
-            <button id="settings-apply" class="settings-btn">Apply</button>
-            <button id="settings-default" class="settings-btn">Reset to Default</button>
+            <div style="display: flex; justify-content: space-between; width: 100%;">
+              <div>
+                <label style="margin-right: 20px;">Game Mode:</label>
+                <select id="game-type-setting">
+                  <option value="human-vs-ai" selected>Human vs AI</option>
+                  <option value="ai-vs-ai">AI vs AI</option>
+                </select>
+              </div>
+              <div>
+                <button id="settings-apply" class="settings-btn">Apply</button>
+                <button id="settings-default" class="settings-btn">Reset</button>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -605,7 +616,7 @@
       </div>
       
       <div id="back-button-container" style="position: fixed; top: 10px; right: 10px; z-index: 999; display: none; pointer-events: auto;">
-        <button id="back-button" class="settings-btn"><i class="fas fa-home"></i> Menu</button>
+        <button id="back-button" class="settings-btn" onclick="window.location.href='index.html'"><i class="fas fa-home"></i> Home</button>
       </div>
       
       <div class="power-up-indicators">
@@ -879,6 +890,7 @@
     document.getElementById('game-speed-setting').addEventListener('input', updateGameSpeed);
     document.getElementById('powerup-frequency').addEventListener('change', updatePowerUpFrequency);
     document.getElementById('ai-difficulty').addEventListener('change', updateAIDifficulty);
+    document.getElementById('game-type-setting').addEventListener('change', updateGameType);
     
     // ----- Game Functions -----
     
@@ -1000,7 +1012,6 @@
       // Hide game mode buttons and show back button
       document.getElementById('game-mode-buttons').style.display = 'none';
       document.getElementById('back-button-container').style.display = 'block';
-      document.getElementById('back-button').addEventListener('click', returnToMenu);
       
       // Update game state
       isOnlineMode = false;
@@ -1098,6 +1109,23 @@
       rightPaddle.difficulty = difficultySelect.value || 'normal';
     }
     
+    // Update game type (AI vs AI or Human vs AI)
+    function updateGameType() {
+      const gameTypeSelect = document.getElementById('game-type-setting');
+      const gameType = gameTypeSelect.value;
+      
+      if (gameType === 'ai-vs-ai') {
+        leftPaddle.isAI = true;
+        rightPaddle.isAI = true;
+      } else if (gameType === 'human-vs-ai') {
+        leftPaddle.isAI = false;
+        rightPaddle.isAI = true;
+      }
+      
+      // Update notification
+      showNotification("Game mode changed to " + gameType.replace(/-/g, ' ').toUpperCase());
+    }
+    
     // Start online mode
     function startOnlineMode() {
       // Update UI
@@ -1116,7 +1144,6 @@
       // Hide game mode buttons and show back button
       document.getElementById('game-mode-buttons').style.display = 'none';
       document.getElementById('back-button-container').style.display = 'block';
-      document.getElementById('back-button').addEventListener('click', returnToMenu);
       
       // Update game state
       isOnlineMode = true;
@@ -1285,48 +1312,9 @@
       }, 3000);
     }
     
-    // Return to menu - simulates returning to the main menu
+    // Return to menu - not used with direct navigation back to index.html
     function returnToMenu() {
-      // Reset UI
-      document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.getElementById('back-button-container').style.display = 'none';
-      document.getElementById('share-code').style.display = 'none';
-      document.getElementById('settings-panel').style.display = 'none';
-      document.getElementById('matchmaking-panel').style.display = 'none';
-      document.getElementById('game-mode-buttons').style.display = 'flex';
-      
-      // Show controls help again
-      document.getElementById('controls-help').style.display = 'block';
-      
-      // Reset game state
-      isOnlineMode = false;
-      isWaitingForOpponent = false;
-      isPlaygroundMode = false;
-      
-      // Cancel any ongoing matchmaking
-      if (window.matchmakingTimeout) {
-        clearTimeout(window.matchmakingTimeout);
-      }
-      
-      // Reset to default settings
-      maxPoints = 10;
-      gameSpeed = 1;
-      powerUpInterval = 5000;
-      ball.speed = 5;
-      leftPaddle.speed = 5;
-      rightPaddle.speed = 5;
-      
-      // Hide waiting message
-      if (waitingMessage) {
-        waitingMessage.style.display = 'none';
-      }
-      
-      // Return to start state
-      gameState = 'start';
-      resetGame();
-      showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      window.location.href = 'index.html';
     }
     
     // Reset the game
@@ -2162,8 +2150,23 @@
       // Start game loop
       gameLoop();
       
-      // Always start with the main menu
-      showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      // Check for hash in URL to determine startup mode
+      if (window.location.hash === '#offline') {
+        // Launch directly into offline mode
+        setTimeout(() => {
+          startOfflineMode();
+        }, 500);
+      } else if (window.location.hash === '#online') {
+        // Launch directly into online mode
+        setTimeout(() => {
+          startOnlineMode();
+        }, 500);
+      } else {
+        // Show the game selection menu
+        showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      }
+      
+      // Add listeners
       document.getElementById('offline-mode').addEventListener('click', hideControlInstructions);
     }
     
