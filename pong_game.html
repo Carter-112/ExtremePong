@@ -592,8 +592,8 @@
           </div>
         </div>
         
-        <div class="controls-help">
-          <div>Left: <span class="key">W</span> <span class="key">S</span> | Right: <span class="key">↑</span> <span class="key">↓</span> | Pause: <span class="key">P</span></div>
+        <div class="controls-help" id="controls-help">
+          <div>Controls: <span class="key">W</span> <span class="key">S</span> to move | <span class="key">P</span> to pause</div>
         </div>
       </div>
       
@@ -602,11 +602,10 @@
           <div class="control-button" id="left-up"><i class="fas fa-chevron-up"></i></div>
           <div class="control-button" id="left-down"><i class="fas fa-chevron-down"></i></div>
         </div>
-        
-        <div id="right-controls" class="paddle-control">
-          <div class="control-button" id="right-up"><i class="fas fa-chevron-up"></i></div>
-          <div class="control-button" id="right-down"><i class="fas fa-chevron-down"></i></div>
-        </div>
+      </div>
+      
+      <div id="back-button-container" style="position: fixed; top: 10px; right: 10px; z-index: 999; display: none; pointer-events: auto;">
+        <button id="back-button" class="settings-btn"><i class="fas fa-home"></i> Menu</button>
       </div>
       
       <div class="power-up-indicators">
@@ -809,18 +808,14 @@
     // Mobile touch controls
     const touchControls = {
       leftUp: false,
-      leftDown: false,
-      rightUp: false,
-      rightDown: false
+      leftDown: false
     };
     
     // Handle touch events for mobile controls
     function setupTouchControls() {
       const touchButtons = {
         'left-up': 'leftUp',
-        'left-down': 'leftDown',
-        'right-up': 'rightUp',
-        'right-down': 'rightDown'
+        'left-down': 'leftDown'
       };
       
       Object.keys(touchButtons).forEach(id => {
@@ -993,10 +988,19 @@
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
+      
+      // Hide initial message
+      hideElement('.game-message');
+      
+      // Show settings panel
       document.getElementById('offline-mode').classList.add('active');
-      document.getElementById('quit-button').style.display = 'inline-block';
       document.getElementById('settings-panel').style.display = 'block';
       document.getElementById('matchmaking-panel').style.display = 'none';
+      
+      // Hide game mode buttons and show back button
+      document.getElementById('game-mode-buttons').style.display = 'none';
+      document.getElementById('back-button-container').style.display = 'block';
+      document.getElementById('back-button').addEventListener('click', returnToMenu);
       
       // Update game state
       isOnlineMode = false;
@@ -1009,17 +1013,20 @@
       updatePowerUpFrequency();
       updateAIDifficulty();
       
-      // Update paddles
-      leftPaddle.isAI = false; // Human always controls left paddle
-      rightPaddle.isAI = true; // AI controls right paddle
+      // Update paddles - always human vs AI in offline mode
+      leftPaddle.isAI = false; 
+      rightPaddle.isAI = true; 
       
       // Hide waiting message if visible
       waitingMessage.style.display = 'none';
       
-      // Add waiting message to UI
+      // Add waiting message to UI if needed
       if (!document.querySelector('.waiting-message')) {
         document.getElementById('ui-container').appendChild(waitingMessage);
       }
+      
+      // Hide control help
+      hideControlInstructions();
       
       resetGame();
       startGame(); // Automatically start the game
@@ -1097,10 +1104,19 @@
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
+      
+      // Hide initial message
+      hideElement('.game-message');
+      
+      // Show online UI
       document.getElementById('online-mode').classList.add('active');
-      document.getElementById('quit-button').style.display = 'inline-block';
       document.getElementById('settings-panel').style.display = 'none';
       document.getElementById('matchmaking-panel').style.display = 'block';
+      
+      // Hide game mode buttons and show back button
+      document.getElementById('game-mode-buttons').style.display = 'none';
+      document.getElementById('back-button-container').style.display = 'block';
+      document.getElementById('back-button').addEventListener('click', returnToMenu);
       
       // Update game state
       isOnlineMode = true;
@@ -1127,6 +1143,9 @@
       if (!document.querySelector('.waiting-message')) {
         document.getElementById('ui-container').appendChild(waitingMessage);
       }
+      
+      // Hide control help
+      hideControlInstructions();
       
       resetGame();
       startGame(); // Start game in practice mode
@@ -1267,16 +1286,19 @@
     }
     
     // Return to menu - simulates returning to the main menu
-    // In a real integration, this would navigate back to index.html
     function returnToMenu() {
       // Reset UI
       document.querySelectorAll('#game-mode-buttons button').forEach(btn => {
         btn.classList.remove('active');
       });
-      document.getElementById('quit-button').style.display = 'none';
+      document.getElementById('back-button-container').style.display = 'none';
       document.getElementById('share-code').style.display = 'none';
       document.getElementById('settings-panel').style.display = 'none';
       document.getElementById('matchmaking-panel').style.display = 'none';
+      document.getElementById('game-mode-buttons').style.display = 'flex';
+      
+      // Show controls help again
+      document.getElementById('controls-help').style.display = 'block';
       
       // Reset game state
       isOnlineMode = false;
@@ -1305,9 +1327,6 @@
       gameState = 'start';
       resetGame();
       showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
-      
-      // In a real implementation, we would navigate back to the home screen
-      // window.location.href = 'index.html';
     }
     
     // Reset the game
@@ -1526,14 +1545,18 @@
       if (!rightPaddle.isAI) {
         rightPaddle.vy = 0;
         
-        // Keyboard
+        // In online mode, right paddle is controlled by the opponent
+        // Here we'd update from network input in a real implementation
+        
+        // For testing only - arrow keys
         if (keys.ArrowUp) rightPaddle.vy = -rightPaddle.speed;
         if (keys.ArrowDown) rightPaddle.vy = rightPaddle.speed;
-        
-        // Touch
-        if (touchControls.rightUp) rightPaddle.vy = -rightPaddle.speed;
-        if (touchControls.rightDown) rightPaddle.vy = rightPaddle.speed;
       }
+    }
+    
+    // Function to hide control instructions
+    function hideControlInstructions() {
+      document.getElementById('controls-help').style.display = 'none';
     }
     
     // AI paddle movement
@@ -2139,16 +2162,9 @@
       // Start game loop
       gameLoop();
       
-      // Check for hash in URL
-      if (window.location.hash === '#menu') {
-        // Coming from home page, show mode selection
-        showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
-      } else {
-        // Direct access, show offline mode automatically
-        setTimeout(() => {
-          startOfflineMode();
-        }, 500);
-      }
+      // Always start with the main menu
+      showGameMessage('EXTREME PONG', 'Choose Game Mode to Play');
+      document.getElementById('offline-mode').addEventListener('click', hideControlInstructions);
     }
     
     // Start the game
