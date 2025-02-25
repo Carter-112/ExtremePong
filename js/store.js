@@ -774,23 +774,21 @@ const Store = {
     const confirmPurchase = confirm(confirmMessage);
     if (!confirmPurchase) return;
     
-    // Simulate purchase by immediately applying credits and deducting from balance
-    this.addCredits(credits);
+    // Generate a unique transaction ID
+    const transactionId = Math.random().toString(36).substring(2, 15) + 
+                         Math.random().toString(36).substring(2, 15);
     
-    // Update registered user data immediately
-    if (this.registeredUsers[this.userEmail]) {
-      this.registeredUsers[this.userEmail].credits = this.playerCredits;
-      this.registeredUsers[this.userEmail].transactions = this.registeredUsers[this.userEmail].transactions || [];
-      this.registeredUsers[this.userEmail].transactions.push({
-        type: 'purchase',
-        amount: credits,
-        price: finalPrice,
-        date: new Date().toISOString()
-      });
-    }
-    
-    // Save data immediately so it persists
-    this.savePlayerData();
+    // Store pending transaction in localStorage
+    const pendingTransaction = {
+      id: transactionId,
+      credits: credits,
+      price: finalPrice,
+      originalPrice: price,
+      timestamp: Date.now(),
+      userId: this.userEmail,
+      completed: false // Not completed until verified
+    };
+    localStorage.setItem('pendingTransaction', JSON.stringify(pendingTransaction));
     
     // Construct PayPal URL with parameters
     const paypalURL = new URL('https://www.paypal.com/cgi-bin/webscr');
@@ -799,45 +797,134 @@ const Store = {
     paypalURL.searchParams.append('item_name', `${credits} Credits for Extreme Pong${this.promoActive ? ' (50% OFF)' : ''}`);
     paypalURL.searchParams.append('amount', finalPrice);
     paypalURL.searchParams.append('currency_code', 'USD');
-    paypalURL.searchParams.append('return', window.location.href);
-    paypalURL.searchParams.append('cancel_return', window.location.href);
+    paypalURL.searchParams.append('return', window.location.href + '?tx=' + transactionId + '&status=completed');
+    paypalURL.searchParams.append('cancel_return', window.location.href + '?tx=' + transactionId + '&status=cancelled');
     paypalURL.searchParams.append('custom', this.userEmail); // Add user email for verification
-    
-    // Store transaction in localStorage with completed flag
-    const transactionIntent = {
-      credits: credits,
-      price: finalPrice,
-      originalPrice: price,
-      timestamp: Date.now(),
-      userId: this.userEmail,
-      completed: true // Mark as completed immediately
-    };
-    localStorage.setItem('lastCompletedTransaction', JSON.stringify(transactionIntent));
     
     // Open PayPal in new window
     window.open(paypalURL.toString(), '_blank');
     
-    // Show success notification immediately
-    Utils.showNotification('Credits Added', `${credits} credits have been added to your account. Complete the payment in the PayPal window.`, 'success');
+    // Show notification that payment is pending
+    Utils.showNotification('Payment Pending', `Please complete your payment in the PayPal window. Your credits will be added after payment is verified.`, 'info');
+    
+    // Set up listener for when user returns from PayPal
+    window.addEventListener('focus', this.checkPendingTransaction.bind(this), {once: true});
   },
   
   /**
    * Check for pending transactions when returning from PayPal
    */
   checkPendingTransaction: function() {
-    // Check for completed transactions
-    try {
-      const completedTx = localStorage.getItem('lastCompletedTransaction');
-      if (completedTx) {
-        const tx = JSON.parse(completedTx);
+    // Short delay to allow window to fully regain focus
+    setTimeout(() => {
+      try {
+        // Check for pending transaction
+        const pendingTxStr = localStorage.getItem('pendingTransaction');
+        if (!pendingTxStr) return;
         
-        // Verify transaction is recent (within last 24 hours)
-        if (Date.now() - tx.timestamp > 86400000) {
-          localStorage.removeItem('lastCompletedTransaction');
+        const pendingTx = JSON.parse(pendingTxStr);
+        
+        // Check if transaction is expired (older than 30 minutes)
+        if (Date.now() - pendingTx.timestamp > 1800000) {
+          localStorage.removeItem('pendingTransaction');
+          Utils.showNotification('Transaction Expired', 'Your payment session has expired. Please try again.', 'warning');
+          return;
         }
+        
+        // Check if transaction belongs to current user
+        if (pendingTx.userId !== this.userEmail) {
+          localStorage.removeItem('pendingTransaction');
+          return;
+        }
+        
+        // Parse URL for transaction status
+        const urlParams = new URLSearchParams(window.location.search);
+        const txId = urlParams.get('tx');
+        const status = urlParams.get('status');
+        
+        // Verify transaction ID matches
+        if (txId === pendingTx.id) {
+          if (status === 'completed') {
+            // Process completed transaction
+            this.processCompletedTransaction(pendingTx);
+          } else if (status === 'cancelled') {
+            Utils.showNotification('Payment Cancelled', 'Your transaction was cancelled. No credits have been added.', 'warning');
+            localStorage.removeItem('pendingTransaction');
+          } else {
+            // No status in URL, ask user if they completed payment
+            this.promptForPaymentConfirmation(pendingTx);
+          }
+          
+          // Clean up URL parameters
+          if (history.pushState) {
+            const newurl = window.location.protocol + "//" + 
+                          window.location.host + 
+                          window.location.pathname;
+            window.history.pushState({path: newurl}, '', newurl);
+          }
+        } else if (!txId) {
+          // No transaction ID in URL, ask user for confirmation
+          this.promptForPaymentConfirmation(pendingTx);
+        }
+      } catch (e) {
+        console.error('Error checking transaction:', e);
       }
-    } catch (e) {
-      console.error('Error checking transaction:', e);
+    }, 500);
+  },
+  
+  /**
+   * Process a completed transaction
+   * @param {Object} transaction - Transaction data
+   */
+  processCompletedTransaction: function(transaction) {
+    // Show verification message
+    Utils.showNotification('Verifying Payment', 'Please wait while we verify your payment...', 'info');
+    
+    // Add credits to account
+    this.addCredits(transaction.credits);
+    
+    // Update registered user data
+    if (this.registeredUsers[this.userEmail]) {
+      this.registeredUsers[this.userEmail].credits = this.playerCredits;
+      this.registeredUsers[this.userEmail].transactions = this.registeredUsers[this.userEmail].transactions || [];
+      this.registeredUsers[this.userEmail].transactions.push({
+        type: 'credit_purchase',
+        amount: transaction.credits,
+        price: transaction.price,
+        date: new Date().toISOString(),
+        transactionId: transaction.id
+      });
+    }
+    
+    // Save data to localStorage
+    this.savePlayerData();
+    
+    // Show success notification
+    Utils.showNotification('Payment Successful', 
+      `Thank you for your purchase! ${transaction.credits} credits have been added to your account.`, 
+      'success'
+    );
+    
+    // Clear pending transaction
+    localStorage.removeItem('pendingTransaction');
+  },
+  
+  /**
+   * Prompt user to confirm if they completed payment
+   * @param {Object} transaction - Transaction data
+   */
+  promptForPaymentConfirmation: function(transaction) {
+    // Ask user if they completed the payment
+    const confirmed = confirm(
+      "Did you complete your payment in PayPal?\n\n" +
+      `${transaction.credits} credits for $${transaction.price}`
+    );
+    
+    if (confirmed) {
+      this.processCompletedTransaction(transaction);
+    } else {
+      Utils.showNotification('Payment Cancelled', 'Your transaction was cancelled. No credits have been added.', 'warning');
+      localStorage.removeItem('pendingTransaction');
     }
   },
   
