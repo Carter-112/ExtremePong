@@ -542,7 +542,44 @@ const Store = {
       
       // Update stats UI
       this.updateStatsUI();
-    }
+    },
+  
+  /**
+   * Added a demo auto-register function for testing purposes
+   */
+  demoAutoRegister: function(email, password) {
+    console.log("Auto-registering for demo:", email);
+    
+    // Create initial stats
+    const initialStats = {
+      totalGames: 0,
+      wins: 0,
+      losses: 0,
+      rating: 1000,
+      xp: 0,
+      level: 1,
+      highScore: 0,
+      longestStreak: 0,
+      currentStreak: 0,
+      averageRally: 0
+    };
+    
+    // Register the new user
+    this.registeredUsers[email] = {
+      email: email,
+      password: password,
+      name: "Demo User",
+      credits: 500, // Give 500 free credits to demo users
+      items: {},
+      paypalEmail: '',
+      registrationDate: new Date().toISOString(),
+      stats: initialStats
+    };
+    
+    // Save the registered users
+    localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
+    console.log("Auto-registered user:", email);
+    Utils.showNotification('Account Created', 'An account has been automatically created for demo purposes. Please try logging in now.', 'success');
   },
   
   /**
@@ -668,15 +705,27 @@ const Store = {
    * @param {string} password - User password
    */
   login: function(email, password) {
+    console.log("Login attempt for:", email);
+    
     // Simple validation
     if (!email || !password) {
       Utils.showNotification('Login Failed', 'Please enter both email and password.', 'error');
       return;
     }
     
+    // Check if registered users is initialized
+    if (!this.registeredUsers) {
+      console.log("No registered users found, initializing empty object");
+      this.registeredUsers = {};
+    }
+    
+    console.log("Registered users:", Object.keys(this.registeredUsers));
+    
     // Check if email is registered
     if (!this.registeredUsers[email]) {
       Utils.showNotification('Login Failed', 'No account found with this email. Please register first.', 'error');
+      // Auto-register for demo purposes
+      this.demoAutoRegister(email, password);
       return;
     }
     
@@ -773,6 +822,8 @@ const Store = {
    * @param {string} name - User name
    */
   register: function(email, password, name) {
+    console.log("Register called with:", email, password, name);
+
     // Simple validation
     if (!email || !password || !name) {
       Utils.showNotification('Registration Failed', 'Please fill out all fields.', 'error');
@@ -789,6 +840,12 @@ const Store = {
     if (password.length < 6) {
       Utils.showNotification('Registration Failed', 'Password must be at least 6 characters long.', 'error');
       return;
+    }
+    
+    // Check if registered users is initialized
+    if (!this.registeredUsers) {
+      console.log("Initializing registeredUsers object");
+      this.registeredUsers = {};
     }
     
     // Check if email is already registered

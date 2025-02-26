@@ -101,22 +101,30 @@ function initLoading() {
     const loadingBar = document.getElementById('loadingBar');
     const loadingText = document.getElementById('loadingText');
     
-    // Initialize Store FIRST - this is important for account functionality
-    try {
-      // Initialize Store with payment processing
-      Store.init();
-      console.log("Store initialized");
-    } catch (storeError) {
-      console.error("Store initialization error:", storeError);
-    }
-    
     let progress = 0;
     const interval = setInterval(() => {
       progress += 5;
       loadingBar.style.width = `${progress}%`;
       
-      if (progress === 30) {
+      if (progress === 20) {
+        loadingText.textContent = 'Creating Star Background...';
+        // Initialize UI first to ensure background animation starts
+        try {
+          UI.init();
+          console.log("UI initialized with background");
+        } catch (uiError) {
+          console.error("UI initialization error:", uiError);
+        }
+      } else if (progress === 30) {
         loadingText.textContent = 'Initializing 3D Engine...';
+      } else if (progress === 40) {
+        // Initialize Store after UI is set up (moved to later in loading sequence)
+        try {
+          Store.init();
+          console.log("Store initialized");
+        } catch (storeError) {
+          console.error("Store initialization error:", storeError);
+        }
       } else if (progress === 50) {
         loadingText.textContent = 'Loading Game Assets...';
       } else if (progress === 80) {
@@ -157,8 +165,14 @@ function initGame() {
     // Load stored settings if available
     Settings.loadSettings();
     
-    // Initialize UI
-    UI.init();
+    // UI is now initialized earlier in the loading sequence
+    // This ensures we don't reinitialize and lose the background animation
+    if (!document.getElementById('backgroundStars')) {
+      console.log("UI not initialized yet, initializing...");
+      UI.init();
+    } else {
+      console.log("UI already initialized, skipping");
+    }
     
     // Explicitly check and display main menu
     const mainMenu = document.getElementById('mainMenu');
