@@ -1749,6 +1749,15 @@
       }
     }
     
+    // Reset the rally counter to zero and hide it
+    function resetRallyCounter() {
+      consecutiveHits = 0;
+      const counter = document.getElementById('rally-counter');
+      counter.style.display = 'none';
+      counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
+      delete counter.dataset.epicEffectsAdded;
+    }
+    
     // Create epic visual effect for long rallies
     function createEpicRallyEffect() {
       // Create a burst of particles from the center
@@ -2222,7 +2231,9 @@
         }
         
         updateScoreDisplay();
-        consecutiveHits = 0;
+        
+        // Reset and hide rally counter
+        resetRallyCounter();
         
         // Return true to indicate scoring happened
         return true;
@@ -2263,7 +2274,9 @@
         }
         
         updateScoreDisplay();
-        consecutiveHits = 0;
+        
+        // Reset and hide rally counter
+        resetRallyCounter();
         
         // Return true to indicate scoring happened
         return true;
