@@ -34,11 +34,31 @@ const Store = {
    * Initialize the Store module
    */
   init: function() {
-    // Check for pending transactions when page loads
-    this.checkPendingTransaction();
-    
-    // Load saved player data
-    this.loadPlayerData();
+    try {
+      console.log("Initializing Store module...");
+      
+      // Check for pending transactions when page loads
+      this.checkPendingTransaction();
+      
+      // Load saved player data
+      this.loadPlayerData();
+      
+      console.log("Store module initialized successfully");
+      console.log("User logged in:", this.isLoggedIn);
+      console.log("User email:", this.userEmail);
+      console.log("Player credits:", this.playerCredits);
+      
+      // CRITICAL: Initialize Game.isLoggedIn properly
+      if (typeof Game !== 'undefined') {
+        Game.isLoggedIn = this.isLoggedIn;
+        Game.currentUser = this.isLoggedIn ? {
+          email: this.userEmail,
+          name: this.playerName
+        } : null;
+      }
+    } catch (error) {
+      console.error("Error initializing Store module:", error);
+    }
   },
   
   /**
