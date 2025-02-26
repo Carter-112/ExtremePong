@@ -148,6 +148,18 @@ const Store = {
             this.registeredUsers = {};
           }
           
+          // Ensure user exists in registeredUsers
+          if (this.isLoggedIn && this.userEmail && !this.registeredUsers[this.userEmail]) {
+            // Create user if missing
+            this.registeredUsers[this.userEmail] = {
+              email: this.userEmail,
+              name: this.playerName,
+              credits: this.playerCredits,
+              items: {},
+              registrationDate: new Date().toISOString()
+            };
+          }
+          
           // Update player account data - this is critical for persistence
           if (this.isLoggedIn && this.userEmail && this.registeredUsers[this.userEmail]) {
             // Ensure items object exists
@@ -187,24 +199,67 @@ const Store = {
           // Show success notification
           Utils.showNotification('Purchase Successful', `You have purchased the item for ${finalPrice} credits${this.promoActive ? ' (50% OFF!)' : ''}!`, 'success');
           
-          // Save player data IMMEDIATELY to persist across refreshes
-          // Call this multiple times to ensure it's saved
+          // ---------- CRITICAL SAVE SECTION ----------
+          // This is the most important part to ensure data persists
+          
+          // First save
           this.savePlayerData();
           
-          // Extra save for redundancy 
-          setTimeout(() => {
-            // Verify data was saved correctly
-            if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
-              console.log('Verifying saved data:', this.registeredUsers[this.userEmail].items);
-              
-              // Ensure the item is still in the account
-              if (!this.registeredUsers[this.userEmail].items[itemId]) {
-                console.warn('Item not properly saved, fixing...');
-                this.registeredUsers[this.userEmail].items[itemId] = true;
+          // Save directly to localStorage as a backup
+          try {
+            // Direct save of critical purchase data
+            const purchaseBackup = {
+              email: this.userEmail,
+              credits: this.playerCredits,
+              item: itemId,
+              timestamp: Date.now()
+            };
+            localStorage.setItem('lastPurchaseBackup', JSON.stringify(purchaseBackup));
+            
+            // Also save raw registered users data directly
+            localStorage.setItem('cosmicPongUsers_backup', JSON.stringify(this.registeredUsers));
+          } catch (e) {
+            console.error('Error saving backup data:', e);
+          }
+          
+          // Multiple redundant saves with increasing delays
+          const saveIntervals = [100, 500, 1000, 2000];
+          saveIntervals.forEach(delay => {
+            setTimeout(() => {
+              // Verify data is still correct
+              if (this.isLoggedIn && this.registeredUsers && this.registeredUsers[this.userEmail]) {
+                // Check if item is still in account
+                if (!this.registeredUsers[this.userEmail].items || 
+                    !this.registeredUsers[this.userEmail].items[itemId]) {
+                  console.warn(`Item ${itemId} not found in account at ${delay}ms check, fixing...`);
+                  
+                  // Ensure items object exists
+                  if (!this.registeredUsers[this.userEmail].items) {
+                    this.registeredUsers[this.userEmail].items = {};
+                  }
+                  
+                  // Fix the item
+                  this.registeredUsers[this.userEmail].items[itemId] = true;
+                }
+                
+                // Check if credits are correct
+                if (this.registeredUsers[this.userEmail].credits !== this.playerCredits) {
+                  console.warn(`Credits mismatch at ${delay}ms check, fixing...`);
+                  this.registeredUsers[this.userEmail].credits = this.playerCredits;
+                }
+                
+                // Save again
                 this.savePlayerData();
+                
+                // Direct localStorage operation as a backup
+                try {
+                  localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
+                } catch (e) {
+                  console.error(`Error saving at ${delay}ms:`, e);
+                }
               }
-            }
-          }, 100);
+            }, delay);
+          });
           
           // Update UI to show owned item
           const button = document.querySelector(`button[onclick="Store.purchaseItem('${itemId}')"]`);
@@ -301,65 +356,123 @@ const Store = {
    * Load player data from localStorage
    */
   loadPlayerData: function() {
-    // Load registered users
-    const savedUsers = localStorage.getItem('cosmicPongUsers');
-    if (savedUsers) {
-      this.registeredUsers = JSON.parse(savedUsers);
-    }
-    
-    // Load player data from localStorage
-    const savedData = localStorage.getItem('cosmicPongPlayerData');
-    if (savedData) {
-      const data = JSON.parse(savedData);
-      this.playerName = data.name || 'Player';
-      this.playerAvatar = data.avatar || 'cyan';
-      this.playerCredits = data.credits || 0;
-      this.playerItems = data.items || {};
-      this.userEmail = data.email || '';
-      this.isLoggedIn = data.isLoggedIn || false;
-      this.paypalEmail = data.paypalEmail || '';
+    try {
+      // ----- Backup restoration logic -----
+      // Check if we have a backup from an incomplete purchase
+      const purchaseBackup = localStorage.getItem('lastPurchaseBackup');
+      const userBackup = localStorage.getItem('cosmicPongUsers_backup');
       
-      // Always enable PayPal connection to simplify payment flow
-      this.paypalConnected = true;
-      
-      // Load user stats if available
-      if (data.stats) {
-        this.userStats = data.stats;
+      if (purchaseBackup && userBackup) {
+        try {
+          const backupData = JSON.parse(purchaseBackup);
+          const backupUsers = JSON.parse(userBackup);
+          
+          // Check if backup is recent (less than 1 hour old)
+          if (Date.now() - backupData.timestamp < 3600000) {
+            console.log('Found recent purchase backup, attempting to restore');
+            
+            // Use backup as primary data source
+            localStorage.setItem('cosmicPongUsers', userBackup);
+            
+            // Log restoration details
+            console.log('Restored backup purchase: ', backupData.item);
+            console.log('Restored credit balance: ', backupData.credits);
+          }
+        } catch (e) {
+          console.error('Error processing backup:', e);
+        }
       }
       
-      // If logged in, we MUST ensure account data is primary
-      if (this.isLoggedIn && this.registeredUsers[this.userEmail]) {
-        const userData = this.registeredUsers[this.userEmail];
+      // ----- Normal loading logic -----
+      // Load registered users
+      const savedUsers = localStorage.getItem('cosmicPongUsers');
+      if (savedUsers) {
+        this.registeredUsers = JSON.parse(savedUsers);
+      } else {
+        // Initialize if not exists
+        this.registeredUsers = {};
+      }
+      
+      // Load player data from localStorage
+      const savedData = localStorage.getItem('cosmicPongPlayerData');
+      if (savedData) {
+        const data = JSON.parse(savedData);
+        this.playerName = data.name || 'Player';
+        this.playerAvatar = data.avatar || 'cyan';
+        this.playerCredits = data.credits || 0;
+        this.playerItems = data.items || {};
+        this.userEmail = data.email || '';
+        this.isLoggedIn = data.isLoggedIn || false;
+        this.paypalEmail = data.paypalEmail || '';
         
-        // Critical: Credits must be loaded from account data
-        if (typeof userData.credits === 'number') {
-          this.playerCredits = userData.credits;
-          console.log('Loaded credits from account:', this.playerCredits);
+        // Always enable PayPal connection to simplify payment flow
+        this.paypalConnected = true;
+        
+        // Load user stats if available
+        if (data.stats) {
+          this.userStats = data.stats;
         }
         
-        // Also critical: Owned items must be loaded from account
-        if (userData.items) {
-          // First ensure playerItems is initialized
-          if (!this.playerItems) {
-            this.playerItems = {};
+        // ----- CRITICAL ACCOUNTS DATA SYNC -----
+        // If logged in, ACCOUNT data MUST take priority over session data
+        if (this.isLoggedIn && this.userEmail && this.registeredUsers[this.userEmail]) {
+          const userData = this.registeredUsers[this.userEmail];
+          
+          // Critical: Credits must be loaded from account data
+          if (typeof userData.credits === 'number') {
+            this.playerCredits = userData.credits;
+            console.log('Loaded credits from account:', this.playerCredits);
           }
           
-          // For each item in account, ensure it's in player items
-          Object.keys(userData.items).forEach(key => {
-            if (userData.items[key]) {
-              this.playerItems[key] = true;
+          // Also critical: Owned items must be loaded from account
+          if (userData.items) {
+            // First ensure playerItems is initialized
+            if (!this.playerItems) {
+              this.playerItems = {};
             }
-          });
+            
+            // For each item in account, ensure it's in player items
+            Object.keys(userData.items).forEach(key => {
+              if (userData.items[key]) {
+                this.playerItems[key] = true;
+              }
+            });
+            
+            console.log('Loaded items from account:', Object.keys(this.playerItems));
+          }
           
-          console.log('Loaded items from account:', Object.keys(this.playerItems));
+          // Finally, synchronize back to ensure consistency
+          this.savePlayerData();
         }
         
-        // Finally, synchronize back to ensure consistency
-        this.savePlayerData();
+        // Extra verification: If user exists in data but not in registered users, create it
+        if (this.isLoggedIn && this.userEmail && !this.registeredUsers[this.userEmail]) {
+          console.warn('User exists in session but not in accounts - recreating account');
+          
+          // Create user data entry
+          this.registeredUsers[this.userEmail] = {
+            email: this.userEmail,
+            name: this.playerName,
+            credits: this.playerCredits,
+            items: this.playerItems || {},
+            password: "defaultpassword", // Fallback password for auto-created account
+            registrationDate: new Date().toISOString()
+          };
+          
+          // Save immediately
+          this.savePlayerData();
+        }
       }
+    } catch (error) {
+      console.error('Error loading player data:', error);
       
-      // Update login state in Game
-      Game.isLoggedIn = this.isLoggedIn;
+      // Initialize to defaults if there was an error
+      this.registeredUsers = this.registeredUsers || {};
+      this.playerItems = this.playerItems || {};
+    }
+    
+    // Update login state in Game
+    Game.isLoggedIn = this.isLoggedIn;
       Game.currentUser = this.isLoggedIn ? {
         email: this.userEmail,
         name: this.playerName
