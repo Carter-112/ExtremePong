@@ -134,46 +134,67 @@ function initLoading() {
 }
 
 function initGame() {
-  // Load stored settings if available
-  Settings.loadSettings();
-  
-  // Initialize UI
-  UI.init();
-  
-  // Display main menu
-  document.getElementById('mainMenu').style.display = 'block';
-  UI.activePanel = 'mainMenu';
-  
-  // Initialize the renderer and scene
-  Renderer.init();
-  
-  // Create the game field
-  Renderer.createGameField();
-  
-  // Create paddles
-  Renderer.createPaddles();
-  
-  // Create the ball
-  Renderer.createBall();
-  
-  // Initialize input handlers
-  Input.init();
-  
-  // Initialize audio
-  Audio.init();
-  
-  // Store is initialized in initLoading
-  
-  // Enter the animation loop
-  animate();
-  
-  // Check for mobile device when loading
-  if (Utils.isMobileDevice()) {
-    detectDevice();
+  try {
+    console.log("Starting game initialization...");
+    
+    // Load stored settings if available
+    Settings.loadSettings();
+    
+    // Initialize UI
+    UI.init();
+    
+    // Explicitly check and display main menu
+    const mainMenu = document.getElementById('mainMenu');
+    if (mainMenu) {
+      console.log("Main menu element found, displaying...");
+      mainMenu.style.display = 'block';
+      UI.activePanel = 'mainMenu';
+    } else {
+      console.error("Main menu element not found!");
+    }
+    
+    // Initialize the renderer and scene
+    Renderer.init();
+    
+    // Create the game field
+    Renderer.createGameField();
+    
+    // Create paddles
+    Renderer.createPaddles();
+    
+    // Create the ball
+    Renderer.createBall();
+    
+    // Initialize input handlers
+    Input.init();
+    
+    // Initialize audio
+    Audio.init();
+    
+    // Make sure Game is initialized correctly
+    Game.gameState = 'menu';
+    
+    // Enter the animation loop
+    animate();
+    
+    // Check for mobile device when loading
+    if (Utils.isMobileDevice()) {
+      detectDevice();
+    }
+    
+    // Add event listeners for interactions
+    addInteractionListeners();
+    
+    console.log("Game initialization complete");
+  } catch (error) {
+    console.error("ERROR during game initialization:", error);
+    // Try to recover by forcing main menu display
+    try {
+      document.getElementById('mainMenu').style.display = 'block';
+    } catch (e) {
+      console.error("Could not recover from initialization error:", e);
+    }
   }
-  
-  // Add event listeners for interactions
-  addInteractionListeners();
 }
 
 function detectDevice() {
