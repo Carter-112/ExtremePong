@@ -11,20 +11,20 @@ const Physics = {
    * @param {number} deltaTime - Time since last frame
    */
   updateBall: function(deltaTime) {
-    // SAFETY CHECK: If ball is outside field, reset it
-    if (Math.abs(Game.ball.position.x) >= Constants.FIELD_WIDTH / 2 + 2) {
-      console.log('Ball detected outside field, emergency reset');
-      Game.ball.position.x = 0;
-      Game.ball.position.y = 0;
-      Game.ball.userData.velocity.x = 0;
-      Game.ball.userData.velocity.y = 0;
-      setTimeout(() => Game.resetBall(), 100);
-      return;
-    }
+    // Simple boundary check
+    const leftBoundary = -Constants.FIELD_WIDTH / 2;
+    const rightBoundary = Constants.FIELD_WIDTH / 2;
     
-    // Move the ball based on its velocity
+    // First - update the ball position
     Game.ball.position.x += Game.ball.userData.velocity.x * deltaTime * Settings.settings.game.gameSpeed;
     Game.ball.position.y += Game.ball.userData.velocity.y * deltaTime * Settings.settings.game.gameSpeed;
+    
+    // Check if ball is at scoring boundaries
+    if (Game.ball.position.x <= leftBoundary || Game.ball.position.x >= rightBoundary) {
+      // Call scoring function
+      this.checkScoring();
+      return;
+    }
     
     // For 2.5D effect: move ball in z axis with damping
     if (Game.ball.userData.velocity.z) {
@@ -61,11 +61,12 @@ const Physics = {
       // Reverse velocity
       Game.ball.userData.velocity.y *= -1;
       
-      // Position correction to ensure ball is not stuck in the wall
+      // STRONGLY enforce position correction to ensure ball is not stuck in the wall
+      // Use a larger offset to be absolutely sure we're clear of the wall
       if (Game.ball.position.y > fieldHalfHeight) {
-        Game.ball.position.y = fieldHalfHeight - 0.05;
+        Game.ball.position.y = fieldHalfHeight - 0.3;
       } else if (Game.ball.position.y < -fieldHalfHeight) {
-        Game.ball.position.y = -fieldHalfHeight + 0.05;
+        Game.ball.position.y = -fieldHalfHeight + 0.3;
       }
       
       // Add randomness to bounce based on settings
@@ -352,132 +353,88 @@ const Physics = {
    * Check for scoring
    */
   checkScoring: function() {
-    // Ball goes past left paddle
-    if (Game.ball.position.x < -Constants.FIELD_WIDTH / 2) {
-      // Check if left paddle has shield
-      const shieldEffect = Game.leftPaddle.userData.activePowerUps.find(pu => pu.type === 'shield');
-      if (shieldEffect) {
-        // Use up shield
-        if (shieldEffect.count > 1) {
-          shieldEffect.count--;
-        } else {
-          Game.leftPaddle.userData.activePowerUps = Game.leftPaddle.userData.activePowerUps.filter(pu => pu.type !== 'shield');
-        }
-        
-        // Bounce ball back
-        Game.ball.userData.velocity.x = Math.abs(Game.ball.userData.velocity.x);
-        Game.ball.position.x = -Constants.FIELD_WIDTH / 2 + Constants.BALL_RADIUS + 1;
-        
-        // Play shield sound and create visual effect
-        Audio.playSoundWithVolume(Audio.sounds.paddle);
-        Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, 0, 0x2196F3);
+    const leftBoundary = -Constants.FIELD_WIDTH / 2;
+    const rightBoundary = Constants.FIELD_WIDTH / 2;
+    
+    // LEFT SCORING
+    if (Game.ball.position.x <= leftBoundary) {
+      // Immediately clear velocity
+      Game.ball.userData.velocity.x = 0;
+      Game.ball.userData.velocity.y = 0;
+      Game.ball.userData.velocity.z = 0;
+      
+      // Pull away from boundary
+      Game.ball.position.x = 0;
+      
+      // Score point for right player
+      Game.rightPaddle.userData.score++;
+      UI.updateScoreDisplay();
+      
+      // Play score sound
+      Audio.playSoundWithVolume(Audio.sounds.score);
+      
+      // Show score effect
+      Utils.createScoreEffect(Game.rightPaddle.userData.score, 'right');
+      
+      // Check for game end
+      if (Game.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
+        Game.endGame('right');
       } else {
-        // Reset ball position and velocity
-        Game.ball.position.x = 0;
-        Game.ball.position.y = 0;
-        Game.ball.userData.velocity.x = 0;
-        Game.ball.userData.velocity.y = 0;
-        
-        // Score point for right player
-        Game.rightPaddle.userData.score++;
-        UI.updateScoreDisplay();
-        
-        // Play score sound
-        Audio.playSoundWithVolume(Audio.sounds.score);
-        
-        // Show score effect
-        Utils.createScoreEffect(Game.rightPaddle.userData.score, 'right');
-        
-        // Reset for next round
-        Game.gameState = 'gameOver';
-        console.log('Game state changed to: gameOver (temporary state for ball reset)');
-        Game.gameOverTime = Date.now();
-        this.consecutiveHitCount = 0;
-        
-        // Check for game end
-        if (Game.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
-          Game.endGame('right');
-        } else {
-          // Force reset after a short delay if not game end
-          setTimeout(() => {
-            if (Game.gameState === 'gameOver') {
-              Game.resetBall();
-              Game.gameState = 'playing';
-            }
-          }, 1500);
-        }
+        // Reset ball with a delay
+        setTimeout(() => {
+          Game.resetBall();
+        }, 500);
       }
+      
+      return;
     }
     
-    // Ball goes past right paddle
-    if (Game.ball.position.x > Constants.FIELD_WIDTH / 2) {
-      // Check if right paddle has shield
-      const shieldEffect = Game.rightPaddle.userData.activePowerUps.find(pu => pu.type === 'shield');
-      if (shieldEffect) {
-        // Use up shield
-        if (shieldEffect.count > 1) {
-          shieldEffect.count--;
-        } else {
-          Game.rightPaddle.userData.activePowerUps = Game.rightPaddle.userData.activePowerUps.filter(pu => pu.type !== 'shield');
-        }
-        
-        // Bounce ball back
-        Game.ball.userData.velocity.x = -Math.abs(Game.ball.userData.velocity.x);
-        Game.ball.position.x = Constants.FIELD_WIDTH / 2 - Constants.BALL_RADIUS - 1;
-        
-        // Play shield sound and create visual effect
-        Audio.playSoundWithVolume(Audio.sounds.paddle);
-        Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, 0, 0x2196F3);
+    // RIGHT SCORING
+    if (Game.ball.position.x >= rightBoundary) {
+      // Immediately clear velocity
+      Game.ball.userData.velocity.x = 0;
+      Game.ball.userData.velocity.y = 0;
+      Game.ball.userData.velocity.z = 0;
+      
+      // Pull away from boundary
+      Game.ball.position.x = 0;
+      
+      // Score point for left player
+      Game.leftPaddle.userData.score++;
+      UI.updateScoreDisplay();
+      
+      // Play score sound
+      Audio.playSoundWithVolume(Audio.sounds.score);
+      
+      // Show score effect
+      Utils.createScoreEffect(Game.leftPaddle.userData.score, 'left');
+      
+      // Check for game end
+      if (Game.leftPaddle.userData.score >= Settings.settings.game.maxPoints) {
+        Game.endGame('left');
       } else {
-        // Reset ball position and velocity
-        Game.ball.position.x = 0;
-        Game.ball.position.y = 0;
-        Game.ball.userData.velocity.x = 0;
-        Game.ball.userData.velocity.y = 0;
-        
-        // Score point for left player
-        Game.leftPaddle.userData.score++;
-        UI.updateScoreDisplay();
-        
-        // Play score sound
-        Audio.playSoundWithVolume(Audio.sounds.score);
-        
-        // Show score effect
-        Utils.createScoreEffect(Game.leftPaddle.userData.score, 'left');
-        
-        // Reset for next round
-        Game.gameState = 'gameOver';
-        console.log('Game state changed to: gameOver (temporary state for ball reset)');
-        Game.gameOverTime = Date.now();
-        this.consecutiveHitCount = 0;
-        
-        // Check for game end
-        if (Game.leftPaddle.userData.score >= Settings.settings.game.maxPoints) {
-          Game.endGame('left');
-        } else {
-          // Force reset after a short delay if not game end
-          setTimeout(() => {
-            if (Game.gameState === 'gameOver') {
-              Game.resetBall();
-              Game.gameState = 'playing';
-            }
-          }, 1500);
-        }
+        // Reset ball with a delay
+        setTimeout(() => {
+          Game.resetBall();
+        }, 500);
       }
+      
+      return;
     }
-    
+  },
+  
+  /**
+   * Check scoring for multi-balls
+   */
+  checkMultiBallScoring: function() {
     // Check scoring for multi-balls
     for (let i = PowerUps.multiBalls.length - 1; i >= 0; i--) {
       const mb = PowerUps.multiBalls[i];
       
       if (mb.mesh.position.x < -Constants.FIELD_WIDTH / 2) {
-        // Reset ball velocity to prevent residual movement
+        // Reset velocity
         mb.velocity.x = 0;
         mb.velocity.y = 0;
-        
-        // Move the ball away from boundary to prevent getting stuck
-        mb.mesh.position.x = 0; 
-        mb.mesh.position.y = 0;
         
         // Score for right player
         Game.rightPaddle.userData.score++;
@@ -495,13 +452,9 @@ const Physics = {
           Game.endGame('right');
         }
       } else if (mb.mesh.position.x > Constants.FIELD_WIDTH / 2) {
-        // Reset ball velocity to prevent residual movement
+        // Reset velocity
         mb.velocity.x = 0;
         mb.velocity.y = 0;
-        
-        // Move the ball away from boundary to prevent getting stuck
-        mb.mesh.position.x = 0;
-        mb.mesh.position.y = 0;
         
         // Score for left player
         Game.leftPaddle.userData.score++;

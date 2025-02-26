@@ -56,6 +56,21 @@ function animate(currentTime = 0) {
     console.log('Current game state:', Game.gameState);
   }
   
+  // Failsafe for any abnormal game state
+  // If ball is completely outside field, force a reset
+  if (Game.ball && (Math.abs(Game.ball.position.x) > Constants.FIELD_WIDTH / 2 + 5)) {
+    console.log("EMERGENCY: Ball is way outside field, resetting game");
+    Game.resetBall();
+    Game.gameState = 'playing';
+  }
+  
+  // Force timeout on gameOver state
+  if (Game.gameState === 'gameOver' && Game.gameOverTime && (Date.now() - Game.gameOverTime > 2000)) {
+    console.log("EMERGENCY: gameOver state lasted too long, forcing reset");
+    Game.resetBall();
+    Game.gameState = 'playing';
+  }
+
   // Update the game state
   switch (Game.gameState) {
     case 'menu':
@@ -85,6 +100,11 @@ function animate(currentTime = 0) {
       // Temporary state between points
       Game.update(deltaTime);
       Renderer.updatePopOutEffects(deltaTime);
+      // Force a short timeout
+      if (Date.now() - Game.gameOverTime >= 1000) {
+        Game.resetBall();
+        Game.gameState = 'playing';
+      }
       break;
   }
   

@@ -117,45 +117,42 @@ const Game = {
   resetBall: function() {
     console.log('Ball reset triggered');
     
-    // CRITICAL: Create a noticeable pause before resetting
-    // to prevent the ball from immediately moving
+    // Force position to center
+    this.ball.position.set(0, 0, 0);
+    
+    // Zero all velocities
     this.ball.userData.velocity.x = 0;
     this.ball.userData.velocity.y = 0;
     this.ball.userData.velocity.z = 0;
     
-    // Position ball at the center
-    this.ball.position.set(0, 0, 0);
-    
-    // Create a slight delay before setting new velocity
-    setTimeout(() => {
-      // Set random direction
-      const angle = (Math.random() - 0.5) * Math.PI / 2;
-      const direction = Math.random() < 0.5 ? 1 : -1;
-      
-      // IMPORTANT: Set velocity only after a small delay
-      this.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-      this.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-      this.ball.userData.velocity.z = 0;
-      
-      this.ball.userData.baseSpeed = Settings.settings.game.baseBallSpeed;
-      this.ball.userData.speed = Settings.settings.game.baseBallSpeed;
-      
-      console.log('Ball reset complete with new velocity:', this.ball.userData.velocity);
-    }, 300);
-    
+    // Reset material and properties
+    this.ball.material.opacity = 0.9;
     this.ball.userData.isGhost = false;
     this.ball.userData.ghostOpacity = 1;
+    this.ball.userData.baseSpeed = Settings.settings.game.baseBallSpeed;
+    this.ball.userData.speed = Settings.settings.game.baseBallSpeed;
     
-    // Reset material
-    this.ball.material.opacity = 0.9;
-    
-    // Add ball to the scene if it was removed
+    // Make sure ball is in the scene
     if (!this.ball.parent) {
       Renderer.gameScene.add(this.ball);
     }
     
-    // Explicitly set game state to playing after reset
+    // Set game state to playing
     this.gameState = 'playing';
+    
+    // Add a delay before setting the ball in motion
+    setTimeout(() => {
+      // Only set velocity if still in playing state
+      if (this.gameState === 'playing') {
+        // Set random direction
+        const angle = (Math.random() - 0.5) * Math.PI / 2;
+        const direction = Math.random() < 0.5 ? 1 : -1;
+        
+        // Set new velocity
+        this.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+        this.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+      }
+    }, 500);
   },
   
   /**
