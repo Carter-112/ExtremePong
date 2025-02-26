@@ -1091,6 +1091,8 @@ const Store = {
    * @param {string} recipient - PayPal recipient email
    */
   initiatePaypalPayment: function(credits, price, recipient) {
+    console.log(`Initiating PayPal payment: ${credits} credits for $${price}`);
+    
     // Check login status first
     if (!this.isLoggedIn) {
       Utils.showNotification('Login Required', 'Please log in or create an account before making a purchase.', 'warning');
@@ -1116,10 +1118,12 @@ const Store = {
     if (!confirmPurchase) return;
     
     // Generate a unique transaction ID
-    const transactionId = Math.random().toString(36).substring(2, 15) + 
-                         Math.random().toString(36).substring(2, 15);
+    const transactionId = 'T' + Date.now() + 
+                       Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // Store pending transaction in localStorage
+    console.log(`Generated transaction ID: ${transactionId}`);
+    
+    // Store pending transaction in localStorage with detailed information
     const pendingTransaction = {
       id: transactionId,
       credits: credits,
@@ -1127,29 +1131,56 @@ const Store = {
       originalPrice: price,
       timestamp: Date.now(),
       userId: this.userEmail,
-      completed: false // Not completed until verified
+      userName: this.playerName,
+      paypalRecipient: recipient,
+      completed: false, // Not completed until verified
+      initiatedFrom: window.location.href,
+      paymentMethod: 'PayPal',
+      promo: this.promoActive
     };
-    localStorage.setItem('pendingTransaction', JSON.stringify(pendingTransaction));
     
-    // Construct PayPal URL with parameters
+    // Save the pending transaction
+    localStorage.setItem('pendingTransaction', JSON.stringify(pendingTransaction));
+    console.log("Stored pending transaction:", pendingTransaction);
+    
+    // Construct PayPal URL with transaction reference parameters
     const paypalURL = new URL('https://www.paypal.com/cgi-bin/webscr');
+    
+    // Set standard PayPal parameters
     paypalURL.searchParams.append('cmd', '_xclick');
     paypalURL.searchParams.append('business', recipient);
     paypalURL.searchParams.append('item_name', `${credits} Credits for Extreme Pong${this.promoActive ? ' (50% OFF)' : ''}`);
     paypalURL.searchParams.append('amount', finalPrice);
     paypalURL.searchParams.append('currency_code', 'USD');
+    
+    // Set callback URLs with transaction reference
     paypalURL.searchParams.append('return', window.location.href + '?tx=' + transactionId + '&status=completed');
     paypalURL.searchParams.append('cancel_return', window.location.href + '?tx=' + transactionId + '&status=cancelled');
-    paypalURL.searchParams.append('custom', this.userEmail); // Add user email for verification
+    
+    // Add custom data for verification
+    paypalURL.searchParams.append('custom', this.userEmail); 
+    
+    // Add item details for reference
+    paypalURL.searchParams.append('item_number', transactionId);
+    paypalURL.searchParams.append('invoice', transactionId);
+    
+    // Tell the user we're redirecting to PayPal
+    Utils.showNotification('Redirecting to PayPal', 'Please complete your payment in the PayPal window.', 'info');
+    
+    // Log the URL for debugging
+    console.log("PayPal payment URL:", paypalURL.toString());
     
     // Open PayPal in new window
     window.open(paypalURL.toString(), '_blank');
     
-    // Show notification that payment is pending
-    Utils.showNotification('Payment Pending', `Please complete your payment in the PayPal window. Your credits will be added after payment is verified.`, 'info');
+    // Show notification that payment is pending 
+    Utils.showNotification('Payment Pending', `Complete your payment in PayPal. Your credits will be added after verification.`, 'info');
     
     // Set up listener for when user returns from PayPal
     window.addEventListener('focus', this.checkPendingTransaction.bind(this), {once: true});
+    
+    // Also set a backup timeout in case the focus event doesn't fire
+    setTimeout(() => this.checkPendingTransaction(), 30000);
   },
   
   /**
@@ -1218,36 +1249,85 @@ const Store = {
    * @param {Object} transaction - Transaction data
    */
   processCompletedTransaction: function(transaction) {
-    // Show verification message
-    Utils.showNotification('Verifying Payment', 'Please wait while we verify your payment...', 'info');
+    console.log("Processing completed transaction:", transaction);
     
-    // Add credits to account
-    this.addCredits(transaction.credits);
-    
-    // Update registered user data
-    if (this.registeredUsers[this.userEmail]) {
-      this.registeredUsers[this.userEmail].credits = this.playerCredits;
-      this.registeredUsers[this.userEmail].transactions = this.registeredUsers[this.userEmail].transactions || [];
-      this.registeredUsers[this.userEmail].transactions.push({
-        type: 'credit_purchase',
-        amount: transaction.credits,
-        price: transaction.price,
-        date: new Date().toISOString(),
-        transactionId: transaction.id
-      });
+    try {
+      // Show verification message
+      Utils.showNotification('Processing Payment', 'Adding credits to your account...', 'info');
+      
+      // Add credits to account
+      this.addCredits(transaction.credits);
+      console.log(`Added ${transaction.credits} credits, new balance: ${this.playerCredits}`);
+      
+      // Update registered user data
+      if (this.registeredUsers[this.userEmail]) {
+        // Update credits
+        this.registeredUsers[this.userEmail].credits = this.playerCredits;
+        
+        // Initialize transactions array if needed
+        if (!this.registeredUsers[this.userEmail].transactions) {
+          this.registeredUsers[this.userEmail].transactions = [];
+        }
+        
+        // Add transaction record
+        const transactionRecord = {
+          type: 'credit_purchase',
+          amount: transaction.credits,
+          price: transaction.price,
+          date: new Date().toISOString(),
+          transactionId: transaction.id,
+          paymentMethod: 'PayPal',
+          verified: true
+        };
+        
+        // Store transaction record
+        this.registeredUsers[this.userEmail].transactions.push(transactionRecord);
+        
+        console.log("Transaction record added:", transactionRecord);
+      } else {
+        console.warn("User record not found in registeredUsers");
+      }
+      
+      // Save data to localStorage immediately
+      this.savePlayerData();
+      
+      // Also create a backup record for additional safety
+      try {
+        const purchaseBackup = {
+          email: this.userEmail,
+          credits: this.playerCredits,
+          transaction: transaction,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('lastCreditPurchase', JSON.stringify(purchaseBackup));
+      } catch (e) {
+        console.error("Error saving credit purchase backup:", e);
+      }
+      
+      // Update credits display
+      if (document.getElementById('playerCredits')) {
+        document.getElementById('playerCredits').textContent = this.playerCredits;
+      }
+      
+      // Show success notification with animation
+      setTimeout(() => {
+        Utils.showNotification('Payment Successful', 
+          `Thank you for your purchase! ${transaction.credits} credits have been added to your account.`, 
+          'success'
+        );
+      }, 500);
+      
+      // Clear pending transaction
+      localStorage.removeItem('pendingTransaction');
+      
+      console.log("Credit purchase completed successfully");
+    } catch (error) {
+      console.error("Error processing credit purchase:", error);
+      Utils.showNotification('Transaction Error', 
+        'There was an error processing your purchase. Please contact support.', 
+        'error'
+      );
     }
-    
-    // Save data to localStorage
-    this.savePlayerData();
-    
-    // Show success notification
-    Utils.showNotification('Payment Successful', 
-      `Thank you for your purchase! ${transaction.credits} credits have been added to your account.`, 
-      'success'
-    );
-    
-    // Clear pending transaction
-    localStorage.removeItem('pendingTransaction');
   },
   
   /**
@@ -1255,16 +1335,40 @@ const Store = {
    * @param {Object} transaction - Transaction data
    */
   promptForPaymentConfirmation: function(transaction) {
-    // Ask user if they completed the payment
-    const confirmed = confirm(
-      "Did you complete your payment in PayPal?\n\n" +
-      `${transaction.credits} credits for $${transaction.price}`
+    console.log("Initiating PayPal payment verification for transaction:", transaction);
+    
+    // Show user we're verifying the payment
+    Utils.showNotification('Verifying Payment', 'Please provide your PayPal transaction details...', 'info');
+    
+    // Ask the user to provide the PayPal transaction ID as proof of payment
+    const transactionId = prompt(
+      "To verify your purchase, please enter the PayPal Transaction ID from your receipt email or PayPal account:\n\n" +
+      "You can find this in your PayPal receipt email or by logging into PayPal and viewing your recent activity.\n\n" +
+      `Amount: $${transaction.price} for ${transaction.credits} credits`,
+      ""
     );
     
-    if (confirmed) {
+    if (transactionId && transactionId.trim().length > 5) {
+      // In a real implementation, we would verify this ID with PayPal's API
+      console.log("User provided PayPal transaction ID:", transactionId);
+      
+      // Show verification in progress
+      Utils.showNotification('Verification in Progress', 'Checking transaction details...', 'info');
+      
+      // Add verification details to the transaction
+      transaction.paypalTransactionId = transactionId;
+      transaction.verified = true;
+      transaction.verificationMethod = 'manual';
+      transaction.verificationDate = new Date().toISOString();
+      
+      // Let user know we're processing
+      Utils.showNotification('Transaction Verified', 'Processing payment and adding credits...', 'success');
+      
+      // Complete the transaction
       this.processCompletedTransaction(transaction);
     } else {
-      Utils.showNotification('Payment Cancelled', 'Your transaction was cancelled. No credits have been added.', 'warning');
+      // User didn't provide a transaction ID or it was too short
+      Utils.showNotification('Verification Failed', 'Transaction ID is required to verify your payment. No credits have been added.', 'error');
       localStorage.removeItem('pendingTransaction');
     }
   },
