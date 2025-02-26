@@ -11,13 +11,66 @@ const Physics = {
    * @param {number} deltaTime - Time since last frame
    */
   updateBall: function(deltaTime) {
-    // First - update the ball position
-    Game.ball.position.x += Game.ball.userData.velocity.x * deltaTime * Settings.settings.game.gameSpeed;
-    Game.ball.position.y += Game.ball.userData.velocity.y * deltaTime * Settings.settings.game.gameSpeed;
+    // FUNDAMENTAL FIX: Calculate the new position BEFORE applying it
+    // This way we can check if the ball will cross boundaries
+    const newX = Game.ball.position.x + Game.ball.userData.velocity.x * deltaTime * Settings.settings.game.gameSpeed;
+    const newY = Game.ball.position.y + Game.ball.userData.velocity.y * deltaTime * Settings.settings.game.gameSpeed;
     
-    // NOTE: Scoring is now handled directly in the animation loop
-    // This is to prevent any possible race conditions or freezing issues
-    // See the main.js file for the direct boundary detection and scoring logic
+    // Check boundaries - LEFT SIDE
+    if (newX < -Constants.FIELD_WIDTH / 2) {
+      // NEVER update position past the boundary
+      console.log("Ball about to hit left boundary");
+      
+      // Right player scores
+      Game.rightPaddle.userData.score++;
+      UI.updateScoreDisplay();
+      
+      // CRITICAL: Force ball to center and stop
+      Game.ball.position.set(0, 0, 0);
+      Game.ball.userData.velocity.set(0, 0, 0);
+      
+      // After a delay, give ball new direction
+      setTimeout(() => {
+        if (Game.ball && Game.ball.userData) {
+          const angle = (Math.random() - 0.5) * Math.PI / 2;
+          const direction = Math.random() < 0.5 ? 1 : -1;
+          Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+          Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+        }
+      }, 1000);
+      
+      return; // Skip the rest of the update
+    }
+    
+    // Check boundaries - RIGHT SIDE
+    if (newX > Constants.FIELD_WIDTH / 2) {
+      // NEVER update position past the boundary
+      console.log("Ball about to hit right boundary");
+      
+      // Left player scores
+      Game.leftPaddle.userData.score++;
+      UI.updateScoreDisplay();
+      
+      // CRITICAL: Force ball to center and stop
+      Game.ball.position.set(0, 0, 0);
+      Game.ball.userData.velocity.set(0, 0, 0);
+      
+      // After a delay, give ball new direction
+      setTimeout(() => {
+        if (Game.ball && Game.ball.userData) {
+          const angle = (Math.random() - 0.5) * Math.PI / 2;
+          const direction = Math.random() < 0.5 ? 1 : -1;
+          Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+          Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+        }
+      }, 1000);
+      
+      return; // Skip the rest of the update
+    }
+    
+    // SAFE TO UPDATE: Only if ball is staying within bounds
+    Game.ball.position.x = newX;
+    Game.ball.position.y = newY;
     
     // For 2.5D effect: move ball in z axis with damping
     if (Game.ball.userData.velocity.z) {

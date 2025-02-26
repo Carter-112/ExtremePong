@@ -127,9 +127,9 @@ function animate(currentTime = 0) {
     // Skip if delta time is too large (tab was inactive)
     if (deltaTime > 0.1) return;
     
-    // EXTREMELY SIMPLIFIED, ROBUST BOUNDARY DETECTION
+    // Only check for invalid states - actual boundary checks are now in physics.js
     if (Game.ball) {
-      // Handle emergency edge case - ball too far from playfield or in invalid state
+      // Handle emergency edge case - ball in invalid state
       if (Game.ball.position.x === undefined || 
           Game.ball.position.y === undefined ||
           isNaN(Game.ball.position.x) || 
@@ -137,52 +137,6 @@ function animate(currentTime = 0) {
           Math.abs(Game.ball.position.x) > Constants.FIELD_WIDTH + 10) {
         console.warn("Ball in invalid state - forcing reset");
         emergencyGameRecovery();
-        return;
-      }
-      
-      // LEFT SCORE: Ball at or beyond left boundary
-      if (Game.ball.position.x <= -Constants.FIELD_WIDTH / 2) {
-        // Score point for right player
-        Game.rightPaddle.userData.score++;
-        UI.updateScoreDisplay();
-        
-        // IMMEDIATE FULL RESET
-        Game.ball.position.set(0, 0, 0);
-        Game.ball.userData.velocity.set(0, 0, 0);
-        
-        // Wait before giving ball velocity
-        setTimeout(() => {
-          if (Game.ball) {
-            const angle = (Math.random() - 0.5) * Math.PI / 2;
-            const direction = Math.random() < 0.5 ? 1 : -1;
-            Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-            Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-          }
-        }, 1000);
-        
-        return;
-      }
-      
-      // RIGHT SCORE: Ball at or beyond right boundary
-      if (Game.ball.position.x >= Constants.FIELD_WIDTH / 2) {
-        // Score point for left player
-        Game.leftPaddle.userData.score++;
-        UI.updateScoreDisplay();
-        
-        // IMMEDIATE FULL RESET
-        Game.ball.position.set(0, 0, 0);
-        Game.ball.userData.velocity.set(0, 0, 0);
-        
-        // Wait before giving ball velocity
-        setTimeout(() => {
-          if (Game.ball) {
-            const angle = (Math.random() - 0.5) * Math.PI / 2;
-            const direction = Math.random() < 0.5 ? 1 : -1;
-            Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-            Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-          }
-        }, 1000);
-        
         return;
       }
     }
