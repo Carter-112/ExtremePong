@@ -1519,7 +1519,6 @@
     // Reset ball position
     function resetBall() {
       // Check if this is the initial game start or after scoring
-      // ALWAYS treat this as a reset when function is called directly from checkScoring
       const isInitialStart = (gameState === 'start');
       const isAfterScoring = true; // Force reset animation and timeout
       
@@ -1528,6 +1527,11 @@
       // CRITICAL: Make sure any existing timeouts are cleared
       if (window.ballResetTimer) {
         clearTimeout(window.ballResetTimer);
+        window.ballResetTimer = null;
+      }
+      if (window.gameTimers && window.gameTimers.ballReset) {
+        clearTimeout(window.gameTimers.ballReset);
+        window.gameTimers.ballReset = null;
       }
       
       // First reset position
@@ -1596,7 +1600,11 @@
         ball.dy = 0;
         
         // Schedule delayed restart with new direction after a short pause
-        window.ballResetTimer = setTimeout(() => {
+        // Store timer ID in both global locations for backward compatibility
+        const timerId = setTimeout(() => {
+          // Clear timer references once it executes
+          window.ballResetTimer = null;
+          if (window.gameTimers) window.gameTimers.ballReset = null;
           // CRITICAL FIX: Double check the game state is still active
           if (gameState === 'playing' || gameState === 'start') {
             // Log before setting velocity
@@ -1611,9 +1619,17 @@
             // Use original speed to maintain game pace, with minimum speed guarantee
             const newSpeed = Math.max(originalSpeed, ball.speed);
             
-            // CRITICAL: Force ball velocity to non-zero values
-            ball.dx = direction * Math.cos(angle) * newSpeed;
-            ball.dy = Math.sin(angle) * newSpeed;
+            // CRITICAL: Force ball velocity to non-zero values with minimum values
+            // Make sure they're at least 3 in magnitude to avoid stalling
+            const cosValue = Math.cos(angle);
+            const sinValue = Math.sin(angle);
+            ball.dx = direction * (Math.abs(cosValue) < 0.3 ? (cosValue >= 0 ? 0.3 : -0.3) : cosValue) * newSpeed;
+            ball.dy = (Math.abs(sinValue) < 0.2 ? (sinValue >= 0 ? 0.2 : -0.2) : sinValue) * newSpeed;
+            
+            // Extra safeguard to ensure we have movement
+            if (Math.abs(ball.dx) < 3) {
+              ball.dx = ball.dx >= 0 ? 3 : -3;
+            }
             
             // Verify velocity was actually set
             console.log("Ball velocity set to:", ball.dx, ball.dy);
@@ -1646,6 +1662,10 @@
             }
           }
         }, 600); // Reduced delay for better gameplay
+        
+        // Store timer ID in both places
+        window.ballResetTimer = timerId;
+        if (window.gameTimers) window.gameTimers.ballReset = timerId;
       }
       
       // Allow animations to continue
@@ -1886,7 +1906,10 @@
       checkPaddleCollisions();
       
       // Ball out of bounds - scoring
-      checkScoring();
+      // Use return value from checkScoring to prevent double-updates
+      if (checkScoring()) {
+        return; // Skip the rest of update logic if scoring happened
+      }
       
       // Update power-ups
       updatePowerUps();
@@ -2200,6 +2223,9 @@
         
         updateScoreDisplay();
         consecutiveHits = 0;
+        
+        // Return true to indicate scoring happened
+        return true;
       }
       
       // Ball out of bounds right side
@@ -2238,7 +2264,13 @@
         
         updateScoreDisplay();
         consecutiveHits = 0;
+        
+        // Return true to indicate scoring happened
+        return true;
       }
+      
+      // Return false if no scoring happened
+      return false;
     }
     
     // Create floating score animation
@@ -2750,11 +2782,66 @@
       };
     }
     
+    // Global state tracker for active game timers
+    window.gameTimers = {
+      ballReset: null,
+      gameMessage: null,
+      animations: []
+    };
+    
+    // Helper function to clear all game timers
+    function clearAllGameTimers() {
+      // Clear ball reset timer
+      if (window.gameTimers.ballReset) {
+        clearTimeout(window.gameTimers.ballReset);
+        window.gameTimers.ballReset = null;
+      }
+      
+      // Clear game message timer
+      if (window.gameTimers.gameMessage) {
+        clearTimeout(window.gameTimers.gameMessage);
+        window.gameTimers.gameMessage = null;
+      }
+      
+      // Clear all animation timers
+      window.gameTimers.animations.forEach(timer => clearTimeout(timer));
+      window.gameTimers.animations = [];
+      
+      // For backward compatibility
+      if (window.ballResetTimer) {
+        clearTimeout(window.ballResetTimer);
+        window.ballResetTimer = null;
+      }
+    }
+    
     // Game loop
     function gameLoop() {
       try {
         // DEBUGGING: Track game loop execution
-        if (Math.random() < 0.01) console.log("Game loop running, state =", gameState);
+        if (Math.random() < 0.01) {
+          console.log("Game loop running, state =", gameState);
+          console.log("Ball position:", ball.x, ball.y);
+          console.log("Ball velocity:", ball.dx, ball.dy);
+          
+          // Log timer status
+          console.log("Timer status:", {
+            ballResetTimer: Boolean(window.ballResetTimer),
+            gameTimers: window.gameTimers ? {
+              ballReset: Boolean(window.gameTimers.ballReset),
+              animations: window.gameTimers.animations.length
+            } : null
+          });
+        }
+        
+        // Debug: Force ball movement if it's been stationary for too long
+        if (gameState === 'playing' && Math.abs(ball.dx) <= 0.1 && Math.abs(ball.dy) <= 0.1) {
+          console.warn("Ball appears to be stuck! Position:", ball.x, ball.y);
+          console.warn("Force-setting ball velocity");
+          // Set to a reasonable speed in a random direction
+          const angle = Math.random() * Math.PI * 2;
+          ball.dx = Math.cos(angle) * ball.speed * (Math.random() < 0.5 ? 1 : -1);
+          ball.dy = Math.sin(angle) * ball.speed;
+        }
         
         // Update background - ALWAYS RUN THIS FOR ANIMATIONS
         updateBackground();
@@ -2778,6 +2865,9 @@
         ball.dx = 0;
         ball.dy = 0;
         gameState = 'playing';
+        
+        // Clear any problematic timers
+        clearAllGameTimers();
         
         // Continue loop
         requestAnimationFrame(gameLoop);
