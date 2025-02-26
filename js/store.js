@@ -1091,7 +1091,10 @@ const Store = {
    * @param {string} recipient - PayPal recipient email
    */
   initiatePaypalPayment: function(credits, price, recipient) {
-    console.log(`Initiating PayPal payment: ${credits} credits for $${price}`);
+    console.log(`Initiating PayPal payment: ${credits} credits for $${price} to ${recipient}`);
+    
+    // Always use the configured recipient email
+    recipient = this.actualPaypalEmail || 'cartermoyer75@gmail.com';
     
     // Check login status first
     if (!this.isLoggedIn) {
@@ -1117,6 +1120,59 @@ const Store = {
     const confirmPurchase = confirm(confirmMessage);
     if (!confirmPurchase) return;
     
+    // Check if we're in simulation mode or real payment mode
+    const useSimulationMode = !this.paypalApiService.config.enableRealAPIConnection;
+    
+    if (useSimulationMode) {
+      // SIMULATION MODE - Skip actual PayPal and use demo flow
+      Utils.showNotification('Demo Payment Mode', 'Processing payment in simulation mode...', 'info');
+      
+      // Generate a mock transaction ID
+      const transactionId = 'PAYPAL-' + Date.now().toString(36).toUpperCase();
+      
+      // Store pending transaction to simulate PayPal flow
+      const pendingTransaction = {
+        id: 'DEMO-' + Date.now(),
+        credits: credits,
+        price: finalPrice,
+        originalPrice: price,
+        timestamp: Date.now(),
+        userId: this.userEmail,
+        userName: this.playerName,
+        paypalRecipient: recipient,
+        completed: false,
+        initiatedFrom: window.location.href,
+        paymentMethod: 'PayPal',
+        promo: this.promoActive,
+        isSimulation: true
+      };
+      
+      // Save the pending transaction
+      localStorage.setItem('pendingTransaction', JSON.stringify(pendingTransaction));
+      
+      // Show verification progress UI with simulation notice
+      Utils.showNotification('Processing Payment', 'Connecting to secure payment system...', 'info');
+      
+      // Simulate payment processing with delays
+      setTimeout(() => {
+        Utils.showNotification('Payment Processing', 'Authorizing transaction...', 'info');
+        
+        setTimeout(() => {
+          Utils.showNotification('Payment Verified', 'Transaction completed successfully!', 'success');
+          
+          // Process the completed transaction
+          pendingTransaction.completed = true;
+          this.processCompletedTransaction(pendingTransaction);
+          
+          // Clear the pending transaction
+          localStorage.removeItem('pendingTransaction');
+        }, 1500);
+      }, 1500);
+      
+      return;
+    }
+    
+    // REAL PAYMENT MODE BELOW
     // Generate a unique transaction ID
     const transactionId = 'T' + Date.now() + 
                        Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -1138,6 +1194,9 @@ const Store = {
       paymentMethod: 'PayPal',
       promo: this.promoActive
     };
+    
+    // Add secure signature
+    pendingTransaction.signature = this.paypalApiService.generateTransactionSignature(pendingTransaction);
     
     // Save the pending transaction
     localStorage.setItem('pendingTransaction', JSON.stringify(pendingTransaction));
