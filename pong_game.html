@@ -1492,12 +1492,13 @@
       // Reset game variables
       powerUps = [];
       powerUpTimer = 0;
-      consecutiveHits = 0;
+      
+      // Make sure rally counter is reset
+      resetRallyCounter();
       
       // Reset UI
       updateScoreDisplay();
       updatePowerUpIndicators();
-      updateRallyCounter();
       
       // Show appropriate start message
       gameState = 'start';
@@ -1751,11 +1752,17 @@
     
     // Reset the rally counter to zero and hide it
     function resetRallyCounter() {
+      console.log("RESETTING RALLY COUNTER - consecutiveHits was:", consecutiveHits);
       consecutiveHits = 0;
       const counter = document.getElementById('rally-counter');
-      counter.style.display = 'none';
-      counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
-      delete counter.dataset.epicEffectsAdded;
+      if (counter) {
+        counter.style.display = 'none';
+        counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
+        delete counter.dataset.epicEffectsAdded;
+        console.log("Rally counter reset and hidden");
+      } else {
+        console.warn("Rally counter element not found!");
+      }
     }
     
     // Create epic visual effect for long rallies
@@ -1923,6 +1930,9 @@
       // Ball out of bounds - scoring
       // Use return value from checkScoring to prevent double-updates
       if (checkScoring()) {
+        // Force rally counter to zero and update display again
+        consecutiveHits = 0;
+        updateRallyCounter();
         return; // Skip the rest of update logic if scoring happened
       }
       
