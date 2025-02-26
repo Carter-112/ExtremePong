@@ -399,58 +399,8 @@ const Physics = {
    * Check for scoring - Direct implementation with explicit ball reset
    */
   checkScoring: function() {
-    // Ball goes past left paddle - Right player scores
-    if (Game.ball.position.x <= -Constants.FIELD_WIDTH / 2) {
-      console.log("DIRECT: Ball hit left boundary - right player scores");
-      
-      // Score point for right player
-      Game.rightPaddle.userData.score++;
-      UI.updateScoreDisplay();
-      
-      // Play score sound
-      Audio.playSoundWithVolume(Audio.sounds.score);
-      
-      // Reset ball IMMEDIATELY with no state change
-      Game.ball.position.set(0, 0, 0);
-      Game.ball.userData.velocity.set(0, 0, 0);
-      
-      // After delay, send ball in random direction
-      setTimeout(function() {
-        const angle = (Math.random() - 0.5) * Math.PI / 2;
-        const direction = Math.random() < 0.5 ? 1 : -1;
-        Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-        Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-      }, 1000);
-      
-      return true;
-    }
-    
-    // Ball goes past right paddle - Left player scores
-    if (Game.ball.position.x >= Constants.FIELD_WIDTH / 2) {
-      console.log("DIRECT: Ball hit right boundary - left player scores");
-      
-      // Score point for left player
-      Game.leftPaddle.userData.score++;
-      UI.updateScoreDisplay();
-      
-      // Play score sound
-      Audio.playSoundWithVolume(Audio.sounds.score);
-      
-      // Reset ball IMMEDIATELY with no state change
-      Game.ball.position.set(0, 0, 0);
-      Game.ball.userData.velocity.set(0, 0, 0);
-      
-      // After delay, send ball in random direction
-      setTimeout(function() {
-        const angle = (Math.random() - 0.5) * Math.PI / 2;
-        const direction = Math.random() < 0.5 ? 1 : -1;
-        Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-        Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-      }, 1000);
-      
-      return true;
-    }
-    
+    // This function is now a placeholder since scoring is handled in updateBall
+    // Leaving it here for backward compatibility, but it doesn't do anything now
     return false;
   },
   
