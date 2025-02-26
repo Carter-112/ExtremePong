@@ -479,11 +479,20 @@ const Renderer = {
    * Update ball trail
    */
   updateBallTrail: function() {
-    if (!this.particles || !Settings.settings.graphics.enableParticles) return;
+    // ANIMATION DEBUG: Track if ball trail is updating
+    console.log("ANIMATION DEBUG: Ball trail update triggered");
+    
+    if (!this.particles || !Settings.settings.graphics.enableParticles) {
+      console.log("ANIMATION DEBUG: No particles to update");
+      return;
+    }
     
     const positions = this.particles.geometry.attributes.position.array;
     const alphas = this.particles.geometry.attributes.alpha.array;
     const count = positions.length / 3;
+    
+    // ANIMATION DEBUG: Always update trail position and fade even during game over
+    console.log("ANIMATION DEBUG: Updating ball trail particles: " + count);
     
     // Move all particles one step in the trail
     for (let i = count - 1; i > 0; i--) {

@@ -221,8 +221,12 @@ const Physics = {
     // Check for paddle collisions
     this.checkPaddleCollisions();
     
-    // Check for scoring
-    this.checkScoring();
+    // We no longer use this - scoring is handled at the top of updateBall
+    // this.checkScoring();
+    
+    // ANIMATION DEBUG: Always update visual effects whether or not we score
+    // This ensures animations keep running
+    console.log("ANIMATION DEBUG: Updating ball visual effects");
     
     // Apply magnet effect if active
     PowerUps.applyMagnetEffect();
@@ -232,7 +236,7 @@ const Physics = {
       Game.ball.material.opacity = Game.ball.userData.ghostOpacity;
     }
     
-    // Update ball trail
+    // Update ball trail - CRITICAL for animation
     Renderer.updateBallTrail();
     
     // Handle balls that get stuck

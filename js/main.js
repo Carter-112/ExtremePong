@@ -143,6 +143,14 @@ function animate(currentTime = 0) {
 
   // Update the game state - TRY/CATCH each section for maximum robustness
   try {
+    // ANIMATION DEBUG: Log the current game state on each frame
+    console.log("ANIMATION FRAME - Current game state:", Game.gameState);
+    
+    // ALWAYS update animations no matter what the game state is
+    // This is critical to ensure animations never freeze
+    Renderer.updatePopOutEffects(deltaTime);
+    
+    // Then handle specific game state logic
     switch (Game.gameState) {
       case 'menu':
         // Update menu animation
@@ -152,27 +160,22 @@ function animate(currentTime = 0) {
       case 'playing':
         // Update game logic
         Game.update(deltaTime);
-        // Update 2.5D pop-out effects
-        Renderer.updatePopOutEffects(deltaTime);
         break;
         
       case 'paused':
         // Just render the current state
-        // Still update pop-out effects for visual appeal
-        Renderer.updatePopOutEffects(deltaTime);
         break;
         
       case 'finished':
-        // Game over animations
-        Renderer.updatePopOutEffects(deltaTime);
+        // Additional game over animations if needed
         break;
         
       case 'gameOver':
-        // Keep animations running during gameOver state
-        Renderer.updatePopOutEffects(deltaTime);
+        console.log("ANIMATION DEBUG: In gameOver state, time passed:", Date.now() - Game.gameOverTime);
         
         // Force a short timeout
         if (Date.now() - Game.gameOverTime >= 800) {
+          console.log("ANIMATION DEBUG: Resuming play after gameOver");
           Game.gameState = 'playing';
           
           // Reset ball position and velocity directly
