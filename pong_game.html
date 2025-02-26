@@ -496,6 +496,56 @@
       to { opacity: 0; visibility: hidden; }
     }
     
+    /* Floating score animation styles */
+    .floating-score {
+      position: absolute;
+      font-family: 'Russo One', sans-serif;
+      font-size: 36px;
+      font-weight: bold;
+      text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    }
+    
+    /* Winner text animation styles */
+    .winner-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 100;
+      pointer-events: none;
+      animation: winnerPulse 0.5s infinite alternate;
+    }
+    
+    .winner-title {
+      font-family: 'Russo One', sans-serif;
+      font-size: 60px;
+      font-weight: bold;
+      text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+      margin-bottom: 10px;
+      animation: winnerGlow 1s infinite alternate;
+    }
+    
+    .winner-subtitle {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 32px;
+      color: #ffffff;
+      text-shadow: 0 0 10px rgba(255,255,255,0.7);
+    }
+    
+    @keyframes winnerPulse {
+      from { transform: translate(-50%, -50%) scale(1); }
+      to { transform: translate(-50%, -50%) scale(1.05); }
+    }
+    
+    @keyframes winnerGlow {
+      from { text-shadow: 0 0 20px currentColor, 0 0 40px currentColor; }
+      to { text-shadow: 0 0 30px currentColor, 0 0 60px currentColor, 0 0 80px currentColor; }
+    }
+    
     /* Media Queries for responsiveness */
     @media (max-width: 768px) {
       .title {
@@ -1759,59 +1809,146 @@
       document.getElementById('controls-help').style.display = 'none';
     }
     
-    // AI paddle movement
+    // AI paddle movement with improved smoothing and jitter prevention
     function moveAI(paddle) {
-      // Difficulty factors
-      let reactionSpeed;
+      // Store paddle's previous position and velocity for smoothing
+      if (!paddle.previousPositions) {
+        paddle.previousPositions = [];
+        for (let i = 0; i < 5; i++) {
+          paddle.previousPositions.push(paddle.y + paddle.height / 2);
+        }
+      }
+      
+      // Difficulty factors with added parameters for smoothness
+      let reactionSpeed, smoothingFactor, anticipationFactor, randomnessFactor;
       switch(paddle.difficulty) {
-        case 'easy': reactionSpeed = 0.3; break;
-        case 'normal': reactionSpeed = 0.6; break;
-        case 'hard': reactionSpeed = 0.85; break;
-        case 'insane': reactionSpeed = 0.95; break;
-        default: reactionSpeed = 0.6;
+        case 'easy':
+          reactionSpeed = 0.3;
+          smoothingFactor = 0.6;
+          anticipationFactor = 0.3;
+          randomnessFactor = 0.3;
+          break;
+        case 'normal':
+          reactionSpeed = 0.6;
+          smoothingFactor = 0.75;
+          anticipationFactor = 0.5;
+          randomnessFactor = 0.2;
+          break;
+        case 'hard':
+          reactionSpeed = 0.8;
+          smoothingFactor = 0.85;
+          anticipationFactor = 0.7;
+          randomnessFactor = 0.1;
+          break;
+        case 'insane':
+          reactionSpeed = 0.95;
+          smoothingFactor = 0.95;
+          anticipationFactor = 0.9;
+          randomnessFactor = 0.05;
+          break;
+        default:
+          reactionSpeed = 0.6;
+          smoothingFactor = 0.75;
+          anticipationFactor = 0.5;
+          randomnessFactor = 0.2;
       }
       
       // Target y position
       let targetY;
       
-      // Determine if ball is moving toward this paddle
+      // Calculate ball speed and direction
+      const ballSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
       const isLeft = paddle === leftPaddle;
       const ballMovingToward = (isLeft && ball.dx < 0) || (!isLeft && ball.dx > 0);
+      
+      // Add a small persistent offset to the AI's positioning based on paddle ID
+      // This makes each AI paddle have a slightly different "personality"
+      const paddleIdOffset = isLeft ? -5 : 5;
       
       if (ballMovingToward) {
         // Predict where ball will cross paddle's x-position
         const paddleX = isLeft ? paddle.x + paddle.width : paddle.x;
         const distanceX = paddleX - ball.x;
-        const bounces = Math.floor(Math.abs(distanceX / ball.dx));
+        
+        // Calculate time until impact
+        const timeToImpact = Math.abs(distanceX / ball.dx);
+        
+        // Use anticipation factor to increase prediction accuracy
+        const anticipation = anticipationFactor * (1 - Math.min(1, timeToImpact / 30));
+        
+        // Calculate bounce count more accurately
+        const bounces = Math.floor(Math.abs(distanceX / (ball.dx || 0.1))); // Avoid division by zero
         
         // Calculate ball position after bounces
-        let predictedY = ball.y + (ball.dy * (distanceX / ball.dx));
+        let predictedY = ball.y + (ball.dy * (distanceX / (ball.dx || 0.1)));
         
-        // Adjust for bounces
+        // Adjust for bounces with more accurate physics
         if (bounces > 0) {
           const canvasHeight = gameCanvas.height;
           predictedY = canvasHeight - Math.abs(predictedY % (2 * canvasHeight) - canvasHeight);
         }
         
-        // Add randomness based on difficulty
-        predictedY += (Math.random() - 0.5) * (1 - reactionSpeed) * gameCanvas.height / 2;
+        // Add small controlled randomness for human-like behavior
+        // The randomness decreases as ball gets closer (more focus/accuracy)
+        const distanceRatio = Math.min(1, Math.abs(distanceX) / gameCanvas.width);
+        const randomAmount = (Math.random() - 0.5) * 
+                             randomnessFactor * 
+                             distanceRatio * 
+                             gameCanvas.height / 3;
+        
+        predictedY += randomAmount + paddleIdOffset;
         
         // Ensure prediction is within bounds
         targetY = Math.max(paddle.height/2, Math.min(gameCanvas.height - paddle.height/2, predictedY));
       } else {
-        // Return to center when ball is moving away
-        targetY = gameCanvas.height / 2;
+        // Return to center with a slight offset when ball is moving away
+        // This looks more natural than always perfectly centering
+        targetY = (gameCanvas.height / 2) + paddleIdOffset + (Math.random() - 0.5) * 20;
       }
       
       // Calculate paddle center
       const paddleCenter = paddle.y + paddle.height / 2;
       
-      // Move toward target with smoothing
-      const difference = targetY - paddleCenter;
-      paddle.vy = difference * reactionSpeed * 0.2;
+      // Store current position
+      paddle.previousPositions.push(paddleCenter);
+      if (paddle.previousPositions.length > 5) {
+        paddle.previousPositions.shift();
+      }
       
-      // Apply speed limit
+      // Calculate smoothed position using previous positions
+      let smoothedCenter = 0;
+      for (let i = 0; i < paddle.previousPositions.length; i++) {
+        smoothedCenter += paddle.previousPositions[i];
+      }
+      smoothedCenter /= paddle.previousPositions.length;
+      
+      // Calculate difference using smoothed position
+      const difference = targetY - smoothedCenter;
+      
+      // Add additional smoothing for more natural movement
+      // Different smoothing for small vs large movements
+      let velocitySmoothing;
+      if (Math.abs(difference) < 10) {
+        // Small adjustments - very smooth
+        velocitySmoothing = smoothingFactor * 0.15;
+      } else if (Math.abs(difference) < 50) {
+        // Medium adjustments - moderate smoothing
+        velocitySmoothing = smoothingFactor * 0.2;
+      } else {
+        // Large adjustments - quicker response
+        velocitySmoothing = smoothingFactor * 0.25;
+      }
+      
+      // Set paddle velocity with appropriate smoothing
+      paddle.vy = difference * reactionSpeed * velocitySmoothing;
+      
+      // Apply speed limit with smooth acceleration/deceleration
       paddle.vy = Math.max(-paddle.speed, Math.min(paddle.speed, paddle.vy));
+      
+      // Add minimum movement threshold to prevent jittering when nearly aligned
+      if (Math.abs(difference) < 3 && Math.abs(paddle.vy) < 0.5) {
+        paddle.vy = 0;
+      }
     }
     
     // Check for paddle collisions
@@ -1904,16 +2041,23 @@
       }
     }
     
-    // Check for scoring
+    // Check for scoring with floating score animations
     function checkScoring() {
       // Ball out of bounds left side
       if (ball.x - ball.radius < 0) {
         // Right player scores
         rightPaddle.score++;
         
+        // Create floating score animation for right player
+        createFloatingScoreAnimation(ball.x, ball.y, 'right');
+        
         // Check for win (only if not in unlimited practice mode)
         if (maxPoints !== Infinity && rightPaddle.score >= maxPoints) {
           gameState = 'finished';
+          
+          // Create winner animation
+          createWinnerAnimation('right');
+          
           if (isOnlineMode) {
             showGameMessage('GAME OVER', 'Your opponent won! Press RESET to play again');
           } else {
@@ -1932,9 +2076,16 @@
         // Left player scores
         leftPaddle.score++;
         
+        // Create floating score animation for left player
+        createFloatingScoreAnimation(ball.x, ball.y, 'left');
+        
         // Check for win (only if not in unlimited practice mode)
         if (maxPoints !== Infinity && leftPaddle.score >= maxPoints) {
           gameState = 'finished';
+          
+          // Create winner animation
+          createWinnerAnimation('left');
+          
           if (isOnlineMode) {
             showGameMessage('YOU WIN!', 'Congratulations! Press RESET to play again');
           } else {
@@ -1947,6 +2098,122 @@
         updateScoreDisplay();
         consecutiveHits = 0;
       }
+    }
+    
+    // Create floating score animation
+    function createFloatingScoreAnimation(x, y, scorer) {
+      // Create a div for the floating score
+      const floatingScore = document.createElement('div');
+      floatingScore.className = 'floating-score';
+      
+      // Set position relative to where the ball went out
+      floatingScore.style.position = 'absolute';
+      floatingScore.style.left = `${x / gameCanvas.width * 100}%`;
+      floatingScore.style.top = `${y / gameCanvas.height * 100}%`;
+      
+      // Set text and styling based on who scored
+      if (scorer === 'left') {
+        floatingScore.textContent = '+1';
+        floatingScore.style.color = leftPaddle.color || '#00fcff';
+      } else {
+        floatingScore.textContent = '+1';
+        floatingScore.style.color = rightPaddle.color || '#ff00ff';
+      }
+      
+      // Add to the game container
+      document.querySelector('.game-container').appendChild(floatingScore);
+      
+      // Animate the floating score
+      floatingScore.animate([
+        { 
+          opacity: 1, 
+          transform: 'translate(-50%, -50%) scale(1.5)' 
+        },
+        { 
+          opacity: 0, 
+          transform: 'translate(-50%, -150%) scale(2.5)' 
+        }
+      ], {
+        duration: 1200,
+        easing: 'cubic-bezier(0.2, 0, 0.4, 1)'
+      });
+      
+      // Remove the element after animation completes
+      setTimeout(() => {
+        floatingScore.remove();
+      }, 1200);
+    }
+    
+    // Create winner animation with particles and text effects
+    function createWinnerAnimation(winner) {
+      // Create winner text element
+      const winnerText = document.createElement('div');
+      winnerText.className = 'winner-text';
+      
+      if (winner === 'left') {
+        winnerText.innerHTML = `
+          <div class="winner-title" style="color: ${leftPaddle.color || '#00fcff'}">VICTORY!</div>
+          <div class="winner-subtitle">${leftPaddle.isAI ? 'AI' : 'Player 1'} wins!</div>
+        `;
+      } else {
+        winnerText.innerHTML = `
+          <div class="winner-title" style="color: ${rightPaddle.color || '#ff00ff'}">VICTORY!</div>
+          <div class="winner-subtitle">${rightPaddle.isAI ? 'AI' : 'Player 2'} wins!</div>
+        `;
+      }
+      
+      // Add to the game container
+      document.querySelector('.game-container').appendChild(winnerText);
+      
+      // Create particle explosion for the winner
+      const centerX = gameCanvas.width / 2;
+      const centerY = gameCanvas.height / 2;
+      const winnerColor = (winner === 'left') ? 
+        (leftPaddle.color || '#00fcff') : 
+        (rightPaddle.color || '#ff00ff');
+      
+      // Create a burst of celebration particles
+      for (let i = 0; i < 100; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 5 + Math.random() * 15;
+        const delay = Math.random() * 2000;
+        
+        setTimeout(() => {
+          const particle = {
+            x: centerX,
+            y: centerY,
+            radius: Math.random() * 4 + 2,
+            color: i % 3 === 0 ? winnerColor : '#ffffff',
+            dx: Math.cos(angle) * distance * (0.5 + Math.random() * 0.5),
+            dy: Math.sin(angle) * distance * (0.5 + Math.random() * 0.5) - 2, // Slight upward bias
+            life: 100 + Math.random() * 100,
+            gravity: 0.05
+          };
+          
+          // Add to the game particles
+          particles.push(particle);
+          
+          // Add gravity effect to celebration particles
+          const originalUpdate = particle.update;
+          particle.update = function() {
+            this.dy += this.gravity;
+            if (originalUpdate) originalUpdate.call(this);
+          };
+          
+          // Remove after lifetime expires
+          setTimeout(() => {
+            const index = particles.indexOf(particle);
+            if (index > -1) {
+              particles.splice(index, 1);
+            }
+          }, 3000);
+        }, delay);
+      }
+      
+      // Show winner message and clean up animation after it's done
+      setTimeout(() => {
+        winnerText.remove();
+      }, 5000);
     }
     
     // Spawn a power-up
