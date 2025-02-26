@@ -405,37 +405,14 @@ const Game = {
       return;
     }
     
-    // CRITICAL FIX: Force reset after scoring if ball is at boundary
-    if (Math.abs(this.ball.position.x) >= Constants.FIELD_WIDTH / 2) {
-      console.log('Emergency boundary correction triggered, ball at:', this.ball.position.x);
-      this.resetBall();
-      this.gameState = 'playing';
-    }
+    // We no longer need this emergency reset - it's handled properly in physics.js
     
+    // Do nothing in gameOver state - to let the animation continue in main.js
     if (this.gameState === 'gameOver') {
-      const targetY = (Constants.FIELD_HEIGHT - Constants.PADDLE_HEIGHT) / 2;
-      this.leftPaddle.position.y += (targetY - this.leftPaddle.position.y) * 0.1;
-      this.rightPaddle.position.y += (targetY - this.rightPaddle.position.y) * 0.1;
-      
-      // Ensure ball is centered during game over state
-      this.ball.position.x = 0;
-      this.ball.position.y = 0;
-      this.ball.userData.velocity.x = 0;
-      this.ball.userData.velocity.y = 0;
-      
-      if (Date.now() - this.gameOverTime >= 1000 / Settings.settings.game.gameSpeed) {
-        this.resetBall();
-        this.gameState = 'playing';
-        console.log('Game state changed back to: playing (after reset)');
-      }
+      // Just keep ball centered and still
+      this.ball.position.set(0, 0, 0);
+      this.ball.userData.velocity.set(0, 0, 0);
       return;
-    }
-    
-    // Force timeout for gameOver state to prevent getting stuck
-    if (this.gameState === 'gameOver' && Date.now() - this.gameOverTime >= 2000) {
-      console.log('Force timeout for gameOver state triggered');
-      this.resetBall();
-      this.gameState = 'playing';
     }
     
     if (this.gameState !== 'playing') return;

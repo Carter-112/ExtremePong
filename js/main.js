@@ -168,27 +168,22 @@ function animate(currentTime = 0) {
         break;
         
       case 'gameOver':
-        // Simplified gameOver state handling
-        Game.update(deltaTime);
+        // Keep animations running during gameOver state
         Renderer.updatePopOutEffects(deltaTime);
         
         // Force a short timeout
-        if (Date.now() - Game.gameOverTime >= 1000) {
+        if (Date.now() - Game.gameOverTime >= 800) {
           Game.gameState = 'playing';
           
           // Reset ball position and velocity directly
           Game.ball.position.set(0, 0, 0);
           Game.ball.userData.velocity.set(0, 0, 0);
           
-          // Give ball a new direction after a delay
-          setTimeout(() => {
-            if (Game.ball) {
-              const angle = (Math.random() - 0.5) * Math.PI / 2;
-              const direction = Math.random() < 0.5 ? 1 : -1;
-              Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-              Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-            }
-          }, 500);
+          // Give ball a new direction immediately
+          const angle = (Math.random() - 0.5) * Math.PI / 2;
+          const direction = Math.random() < 0.5 ? 1 : -1;
+          Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+          Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
         }
         break;
     }

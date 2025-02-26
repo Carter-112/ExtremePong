@@ -25,19 +25,16 @@ const Physics = {
       Game.rightPaddle.userData.score++;
       UI.updateScoreDisplay();
       
+      // Play score sound
+      Audio.playSoundWithVolume(Audio.sounds.score);
+      
+      // Set game state to gameOver (special state for resetting after scoring)
+      Game.gameState = 'gameOver';
+      Game.gameOverTime = Date.now();
+      
       // CRITICAL: Force ball to center and stop
       Game.ball.position.set(0, 0, 0);
       Game.ball.userData.velocity.set(0, 0, 0);
-      
-      // After a delay, give ball new direction
-      setTimeout(() => {
-        if (Game.ball && Game.ball.userData) {
-          const angle = (Math.random() - 0.5) * Math.PI / 2;
-          const direction = Math.random() < 0.5 ? 1 : -1;
-          Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-          Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-        }
-      }, 1000);
       
       return; // Skip the rest of the update
     }
@@ -51,19 +48,16 @@ const Physics = {
       Game.leftPaddle.userData.score++;
       UI.updateScoreDisplay();
       
+      // Play score sound
+      Audio.playSoundWithVolume(Audio.sounds.score);
+      
+      // Set game state to gameOver (special state for resetting after scoring)
+      Game.gameState = 'gameOver';
+      Game.gameOverTime = Date.now();
+      
       // CRITICAL: Force ball to center and stop
       Game.ball.position.set(0, 0, 0);
       Game.ball.userData.velocity.set(0, 0, 0);
-      
-      // After a delay, give ball new direction
-      setTimeout(() => {
-        if (Game.ball && Game.ball.userData) {
-          const angle = (Math.random() - 0.5) * Math.PI / 2;
-          const direction = Math.random() < 0.5 ? 1 : -1;
-          Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-          Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-        }
-      }, 1000);
       
       return; // Skip the rest of the update
     }
