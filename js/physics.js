@@ -11,6 +11,17 @@ const Physics = {
    * @param {number} deltaTime - Time since last frame
    */
   updateBall: function(deltaTime) {
+    // SAFETY CHECK: If ball is outside field, reset it
+    if (Math.abs(Game.ball.position.x) >= Constants.FIELD_WIDTH / 2 + 2) {
+      console.log('Ball detected outside field, emergency reset');
+      Game.ball.position.x = 0;
+      Game.ball.position.y = 0;
+      Game.ball.userData.velocity.x = 0;
+      Game.ball.userData.velocity.y = 0;
+      setTimeout(() => Game.resetBall(), 100);
+      return;
+    }
+    
     // Move the ball based on its velocity
     Game.ball.position.x += Game.ball.userData.velocity.x * deltaTime * Settings.settings.game.gameSpeed;
     Game.ball.position.y += Game.ball.userData.velocity.y * deltaTime * Settings.settings.game.gameSpeed;
