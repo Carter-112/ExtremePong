@@ -7,42 +7,145 @@ const UI = {
    * Initialize UI
    */
   init: function() {
-    // Hide score display at start
-    document.querySelector('.score-container').style.display = 'none';
-    
-    // Add event listeners for all close buttons
-    document.querySelectorAll('.panel-header .cyber-button').forEach(button => {
-      button.addEventListener('click', function() {
-        const panel = this.closest('.ui-panel');
-        if (panel && panel.id !== 'mainMenu') {
-          UI.hidePanel(panel.id);
-          
-          // If we're hiding the active panel, show main menu
-          if (UI.activePanel === panel.id) {
-            UI.showPanel('mainMenu');
+    try {
+      console.log("UI initialization started");
+      
+      // Hide score display at start
+      const scoreContainer = document.querySelector('.score-container');
+      if (scoreContainer) {
+        scoreContainer.style.display = 'none';
+      }
+      
+      // Add event listeners for all close buttons
+      document.querySelectorAll('.panel-header .cyber-button').forEach(button => {
+        button.addEventListener('click', function() {
+          const panel = this.closest('.ui-panel');
+          if (panel && panel.id !== 'mainMenu') {
+            UI.hidePanel(panel.id);
+            
+            // If we're hiding the active panel, show main menu
+            if (UI.activePanel === panel.id) {
+              UI.showPanel('mainMenu');
+            }
           }
+        });
+      });
+      
+      // Set z-index for proper layering
+      document.querySelectorAll('.ui-panel').forEach(panel => {
+        if (panel.id !== 'mainMenu') {
+          panel.style.zIndex = '10';
         }
       });
-    });
+      
+      // Create dynamic panels
+      this.createAccountSettingsPanel();
+      this.createLeaderboardPanel();
     
-    // Set z-index for proper layering
-    document.querySelectorAll('.ui-panel').forEach(panel => {
-      if (panel.id !== 'mainMenu') {
-        panel.style.zIndex = '10';
+      // Initialize background animation
+      this.initBackgroundAnimation();
+      
+      console.log("UI initialization completed successfully");
+    } catch (error) {
+      console.error("Error during UI initialization:", error);
+    }
+  },
+  
+  /**
+   * Initialize background animation
+   */
+  initBackgroundAnimation: function() {
+    try {
+      // Create and initialize stars
+      const stars = [];
+      const numStars = 100;
+      
+      // Create canvas if not exists
+      let canvas = document.getElementById('backgroundStars');
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.id = 'backgroundStars';
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.zIndex = '-1';
+        document.body.appendChild(canvas);
       }
-    });
-    
-    // Create account panel and leaderboard panel
-    this.createAccountSettingsPanel();
-    this.createLeaderboardPanel();
+      
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Create stars
+      for (let i = 0; i < numStars; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5 + 0.5,
+          color: `rgba(${Math.random() * 100 + 155}, ${Math.random() * 100 + 155}, ${Math.random() * 255}, ${Math.random() * 0.5 + 0.5})`,
+          speed: Math.random() * 0.3 + 0.1
+        });
+      }
+      
+      // Animation function
+      function animateStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw background
+        ctx.fillStyle = 'rgb(15, 15, 42)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw stars
+        stars.forEach(star => {
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+          ctx.fillStyle = star.color;
+          ctx.fill();
+          
+          // Move star
+          star.y += star.speed;
+          
+          // Reset if off screen
+          if (star.y > canvas.height) {
+            star.y = 0;
+            star.x = Math.random() * canvas.width;
+          }
+        });
+        
+        requestAnimationFrame(animateStars);
+      }
+      
+      // Start animation
+      animateStars();
+      
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+      
+      console.log("Background animation initialized");
+    } catch (error) {
+      console.error("Error initializing background animation:", error);
+    }
   },
   
   /**
    * Create account settings panel
    */
   createAccountSettingsPanel: function() {
-    // Create account settings panel if it doesn't exist
-    if (!document.getElementById('accountPanel')) {
+    console.log("Creating account panel...");
+    
+    // First remove existing panel if it exists
+    const existingPanel = document.getElementById('accountPanel');
+    if (existingPanel) {
+      existingPanel.remove();
+    }
+    
+    try {
+      // Create new account panel
       const accountPanel = document.createElement('div');
       accountPanel.id = 'accountPanel';
       accountPanel.className = 'ui-panel';
@@ -53,11 +156,18 @@ const UI = {
       accountPanel.style.transform = 'translate(-50%, -50%)';
       accountPanel.style.width = '600px';
       accountPanel.style.maxHeight = '80vh';
+      accountPanel.style.zIndex = '1000';
+      
+      // Get current values from Store
+      const currentEmail = Store.userEmail || 'Not logged in';
+      const currentName = Store.playerName || 'Player';
+      const currentAvatar = Store.playerAvatar || 'cyan';
+      const currentPaypalEmail = Store.paypalEmail || '';
       
       accountPanel.innerHTML = `
         <div class="panel-header">
           <h2 class="panel-title">Account Settings</h2>
-          <button class="cyber-button" onclick="UI.hidePanel('accountPanel')" style="min-width: auto; padding: 5px 10px;">
+          <button class="cyber-button close-btn" style="min-width: auto; padding: 5px 10px;">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -66,23 +176,23 @@ const UI = {
             <h3>Account Information</h3>
             <div class="settings-row">
               <label>Email:</label>
-              <span id="account-email">${Store.userEmail || 'Not logged in'}</span>
+              <span id="account-email">${currentEmail}</span>
             </div>
             
             <div class="settings-row">
               <label for="account-name">Display Name:</label>
-              <input type="text" id="account-name" value="${Store.playerName || 'Player'}" style="width: 200px;">
+              <input type="text" id="account-name" value="${currentName}" style="width: 200px;">
             </div>
             
             <div class="settings-row">
               <label for="account-avatar">Avatar Color:</label>
               <select id="account-avatar">
-                <option value="cyan" ${Store.playerAvatar === 'cyan' ? 'selected' : ''}>Cyan</option>
-                <option value="magenta" ${Store.playerAvatar === 'magenta' ? 'selected' : ''}>Magenta</option>
-                <option value="yellow" ${Store.playerAvatar === 'yellow' ? 'selected' : ''}>Yellow</option>
-                <option value="green" ${Store.playerAvatar === 'green' ? 'selected' : ''}>Green</option>
-                <option value="red" ${Store.playerAvatar === 'red' ? 'selected' : ''}>Red</option>
-                <option value="blue" ${Store.playerAvatar === 'blue' ? 'selected' : ''}>Blue</option>
+                <option value="cyan" ${currentAvatar === 'cyan' ? 'selected' : ''}>Cyan</option>
+                <option value="magenta" ${currentAvatar === 'magenta' ? 'selected' : ''}>Magenta</option>
+                <option value="yellow" ${currentAvatar === 'yellow' ? 'selected' : ''}>Yellow</option>
+                <option value="green" ${currentAvatar === 'green' ? 'selected' : ''}>Green</option>
+                <option value="red" ${currentAvatar === 'red' ? 'selected' : ''}>Red</option>
+                <option value="blue" ${currentAvatar === 'blue' ? 'selected' : ''}>Blue</option>
               </select>
             </div>
           </div>
@@ -113,7 +223,7 @@ const UI = {
             <h3>Payment Settings</h3>
             <div class="settings-row">
               <label for="account-paypal">PayPal Email:</label>
-              <input type="email" id="account-paypal" value="${Store.paypalEmail || ''}" placeholder="Enter PayPal email" style="width: 250px;">
+              <input type="email" id="account-paypal" value="${currentPaypalEmail}" placeholder="Enter PayPal email" style="width: 250px;">
             </div>
             <p style="color: #999; font-size: 0.9em; margin-top: 5px;">
               <i class="fas fa-info-circle"></i> Required to purchase credits. We never store your actual PayPal information.
@@ -139,54 +249,84 @@ const UI = {
           </div>
           
           <div class="btn-group">
-            <button class="cyber-button" onclick="UI.saveAccountSettings()">Save Changes</button>
-            <button class="cyber-button warning" onclick="Store.logout()">Logout</button>
+            <button class="cyber-button" id="save-account-button">Save Changes</button>
+            <button class="cyber-button warning" id="logout-account-button">Logout</button>
+            <button class="cyber-button secondary" id="back-account-button">Back to Menu</button>
           </div>
         </div>
       `;
       
       document.body.appendChild(accountPanel);
       
-      // Add CSS for stats grid
-      const statsStyle = document.createElement('style');
-      statsStyle.textContent = `
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          grid-gap: 15px;
-          margin-top: 10px;
-        }
-        
-        .stats-item {
-          background: rgba(0, 127, 255, 0.1);
-          border: 1px solid var(--secondary);
-          border-radius: 5px;
-          padding: 10px;
-          text-align: center;
-        }
-        
-        .stats-label {
-          font-size: 14px;
-          color: #999;
-          margin-bottom: 5px;
-        }
-        
-        .stats-value {
-          font-size: 20px;
-          font-weight: bold;
-          color: var(--tertiary);
-        }
-      `;
-      document.head.appendChild(statsStyle);
+      // Add CSS for stats grid if not already present
+      if (!document.querySelector('style#stats-grid-style')) {
+        const statsStyle = document.createElement('style');
+        statsStyle.id = 'stats-grid-style';
+        statsStyle.textContent = `
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 15px;
+            margin-top: 10px;
+          }
+          
+          .stats-item {
+            background: rgba(0, 127, 255, 0.1);
+            border: 1px solid var(--secondary);
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+          }
+          
+          .stats-label {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 5px;
+          }
+          
+          .stats-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--tertiary);
+          }
+        `;
+        document.head.appendChild(statsStyle);
+      }
       
-      // Add event listener for close button
-      const closeButton = accountPanel.querySelector('.panel-header .cyber-button');
-      closeButton.addEventListener('click', function() {
-        UI.hidePanel('accountPanel');
-        if (UI.activePanel === 'accountPanel') {
-          UI.showPanel('mainMenu');
-        }
-      });
+      // Add event listeners for buttons
+      const closeButton = accountPanel.querySelector('.close-btn');
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          this.hidePanel('accountPanel');
+          this.showPanel('mainMenu');
+        });
+      }
+      
+      const saveButton = document.getElementById('save-account-button');
+      if (saveButton) {
+        saveButton.addEventListener('click', () => this.saveAccountSettings());
+      }
+      
+      const logoutButton = document.getElementById('logout-account-button');
+      if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
+          Store.logout();
+          this.hidePanel('accountPanel');
+          this.showPanel('mainMenu');
+        });
+      }
+      
+      const backButton = document.getElementById('back-account-button');
+      if (backButton) {
+        backButton.addEventListener('click', () => {
+          this.hidePanel('accountPanel');
+          this.showPanel('mainMenu');
+        });
+      }
+      
+      console.log("Account panel created successfully");
+    } catch (error) {
+      console.error("Error creating account panel:", error);
     }
   },
   

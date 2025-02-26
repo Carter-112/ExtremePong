@@ -96,41 +96,58 @@ function animate(currentTime = 0) {
 document.addEventListener('DOMContentLoaded', initLoading);
 
 function initLoading() {
-  // Update loading bar as assets are loaded
-  const loadingBar = document.getElementById('loadingBar');
-  const loadingText = document.getElementById('loadingText');
-  
-  let progress = 0;
-  const interval = setInterval(() => {
-    progress += 5;
-    loadingBar.style.width = `${progress}%`;
+  try {
+    // Update loading bar as assets are loaded
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingText = document.getElementById('loadingText');
     
-    if (progress === 30) {
-      loadingText.textContent = 'Initializing 3D Engine...';
-    } else if (progress === 50) {
-      loadingText.textContent = 'Loading Game Assets...';
-    } else if (progress === 80) {
-      loadingText.textContent = 'Preparing Cosmic Arena...';
-    } else if (progress >= 100) {
-      clearInterval(interval);
-      loadingText.textContent = 'Ready to Play!';
-      
-      // Fade out loading screen
-      setTimeout(() => {
-        document.getElementById('loadingScreen').style.opacity = '0';
-        setTimeout(() => {
-          document.getElementById('loadingScreen').style.display = 'none';
-          initGame();
-        }, 1000);
-      }, 500);
+    // Initialize Store FIRST - this is important for account functionality
+    try {
+      // Initialize Store with payment processing
+      Store.init();
+      console.log("Store initialized");
+    } catch (storeError) {
+      console.error("Store initialization error:", storeError);
     }
-  }, 80);
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 5;
+      loadingBar.style.width = `${progress}%`;
+      
+      if (progress === 30) {
+        loadingText.textContent = 'Initializing 3D Engine...';
+      } else if (progress === 50) {
+        loadingText.textContent = 'Loading Game Assets...';
+      } else if (progress === 80) {
+        loadingText.textContent = 'Preparing Cosmic Arena...';
+      } else if (progress >= 100) {
+        clearInterval(interval);
+        loadingText.textContent = 'Ready to Play!';
+        
+        // Fade out loading screen
+        setTimeout(() => {
+          document.getElementById('loadingScreen').style.opacity = '0';
+          setTimeout(() => {
+            document.getElementById('loadingScreen').style.display = 'none';
+            initGame();
+          }, 1000);
+        }, 500);
+      }
+    }, 80);
   
-  // Initialize Store with payment processing
-  Store.init();
-  
-  // Set up event listeners for slider values
-  UI.setupSliderListeners();
+    // Set up event listeners for slider values
+    try {
+      UI.setupSliderListeners();
+    } catch (uiError) {
+      console.error("UI listener setup error:", uiError);
+    }
+  } catch (error) {
+    console.error("Fatal loading error:", error);
+    // Emergency recovery - try to show the game anyway
+    document.getElementById('loadingScreen').style.display = 'none';
+    initGame();
+  }
 }
 
 function initGame() {
