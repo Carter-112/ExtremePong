@@ -1519,10 +1519,16 @@
     // Reset ball position
     function resetBall() {
       // Check if this is the initial game start or after scoring
+      // ALWAYS treat this as a reset when function is called directly from checkScoring
       const isInitialStart = (gameState === 'start');
-      const isAfterScoring = (ball.dx === 0 && ball.dy === 0 && gameState === 'playing');
+      const isAfterScoring = true; // Force reset animation and timeout
       
       console.log("RESET BALL called, gameState =", gameState, "isInitialStart:", isInitialStart);
+      
+      // CRITICAL: Make sure any existing timeouts are cleared
+      if (window.ballResetTimer) {
+        clearTimeout(window.ballResetTimer);
+      }
       
       // First reset position
       ball.x = gameCanvas.width / 2;
@@ -1590,8 +1596,12 @@
         ball.dy = 0;
         
         // Schedule delayed restart with new direction after a short pause
-        setTimeout(() => {
+        window.ballResetTimer = setTimeout(() => {
+          // CRITICAL FIX: Double check the game state is still active
           if (gameState === 'playing' || gameState === 'start') {
+            // Log before setting velocity
+            console.log("About to set new ball velocity after reset");
+            
             // Random angle between -45 and 45 degrees
             const angle = (Math.random() * 90 - 45) * Math.PI / 180;
             
@@ -1600,10 +1610,13 @@
             
             // Use original speed to maintain game pace, with minimum speed guarantee
             const newSpeed = Math.max(originalSpeed, ball.speed);
+            
+            // CRITICAL: Force ball velocity to non-zero values
             ball.dx = direction * Math.cos(angle) * newSpeed;
             ball.dy = Math.sin(angle) * newSpeed;
             
-            console.log("Ball movement resumed with velocity:", ball.dx, ball.dy);
+            // Verify velocity was actually set
+            console.log("Ball velocity set to:", ball.dx, ball.dy);
             
             // Create a small burst effect when the ball starts moving
             const burstParticles = 8;
@@ -1632,7 +1645,7 @@
               }, 500);
             }
           }
-        }, 800);
+        }, 600); // Reduced delay for better gameplay
       }
       
       // Allow animations to continue
@@ -2773,6 +2786,11 @@
     
     // Initialize the game
     function init() {
+      // Clear any existing timeouts
+      if (window.ballResetTimer) {
+        clearTimeout(window.ballResetTimer);
+      }
+      
       // Initialize background particles
       initParticles();
       
