@@ -361,6 +361,9 @@ const Physics = {
         Audio.playSoundWithVolume(Audio.sounds.paddle);
         Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, 0, 0x2196F3);
       } else {
+        // Ensure the ball is removed from the boundaries
+        Game.ball.position.x = 0;
+        
         // Score point for right player
         Game.rightPaddle.userData.score++;
         UI.updateScoreDisplay();
@@ -404,6 +407,9 @@ const Physics = {
         Audio.playSoundWithVolume(Audio.sounds.paddle);
         Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, 0, 0x2196F3);
       } else {
+        // Ensure the ball is removed from the boundaries
+        Game.ball.position.x = 0;
+        
         // Score point for left player
         Game.leftPaddle.userData.score++;
         UI.updateScoreDisplay();
@@ -432,6 +438,9 @@ const Physics = {
       const mb = PowerUps.multiBalls[i];
       
       if (mb.mesh.position.x < -Constants.FIELD_WIDTH / 2) {
+        // Move the ball away from boundary to prevent getting stuck
+        mb.mesh.position.x = 0; 
+        
         // Score for right player
         Game.rightPaddle.userData.score++;
         UI.updateScoreDisplay();
@@ -448,6 +457,9 @@ const Physics = {
           Game.endGame('right');
         }
       } else if (mb.mesh.position.x > Constants.FIELD_WIDTH / 2) {
+        // Move the ball away from boundary to prevent getting stuck
+        mb.mesh.position.x = 0;
+        
         // Score for left player
         Game.leftPaddle.userData.score++;
         UI.updateScoreDisplay();
