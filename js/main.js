@@ -37,140 +37,225 @@ const Input = {
   }
 };
 
-// DRASTIC FIX: Quick scoring and reset function to bypass all game mechanics
-function quickScore(side) {
-  // Score
-  if (side === 'left') {
-    console.log("BYPASS: Left player scores");
-    Game.leftPaddle.userData.score++;
-    // Show score effect
-    Utils.createScoreEffect(Game.leftPaddle.userData.score, 'left');
-  } else {
-    console.log("BYPASS: Right player scores");
-    Game.rightPaddle.userData.score++;
-    // Show score effect
-    Utils.createScoreEffect(Game.rightPaddle.userData.score, 'right');
-  }
-  
-  // Update display
-  UI.updateScoreDisplay();
-  
-  // Play score sound
-  Audio.playSoundWithVolume(Audio.sounds.score);
-  
-  // Check for game end
-  if (Game.leftPaddle.userData.score >= Settings.settings.game.maxPoints) {
-    Game.endGame('left');
-    return;
-  } else if (Game.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
-    Game.endGame('right');
-    return;
-  }
-  
-  // Complete ball reset - force to center
-  Game.ball.position.set(0, 0, 0);
-  Game.ball.userData.velocity.x = 0;
-  Game.ball.userData.velocity.y = 0;
-  Game.ball.userData.velocity.z = 0;
-  
-  // Wait before starting ball again
-  setTimeout(() => {
-    const angle = (Math.random() - 0.5) * Math.PI / 2;
-    const direction = Math.random() < 0.5 ? 1 : -1;
-    Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-    Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-  }, 500);
-}
+// EMERGENCY FIX: Add error recovery to the game loop
+let animationErrorCount = 0;
+let lastAnimationErrorTime = 0;
 
-// Animation loop
+// Global exception handler to catch any errors in the animation loop
+window.addEventListener('error', function(event) {
+  console.error('CAUGHT ERROR in game:', event.error);
+  
+  // Check if we're getting frequent errors
+  const now = Date.now();
+  if (now - lastAnimationErrorTime < 1000) {
+    animationErrorCount++;
+  } else {
+    animationErrorCount = 1;
+  }
+  lastAnimationErrorTime = now;
+  
+  // If we have multiple errors in a short time, force recover the game
+  if (animationErrorCount > 3) {
+    console.warn('MULTIPLE ERRORS DETECTED - EMERGENCY RECOVERY');
+    emergencyGameRecovery();
+    animationErrorCount = 0;
+  }
+});
+
+// Animation loop with safety catch
 let lastTime = 0;
 let loopId = null;
-let lastBallPosX = 0;
-let lastBallPosY = 0;
-let stuckFrames = 0;
+let lastSuccessfulAnimationTime = Date.now();
+
+// Add a watchdog to detect animation loop freezes
+setInterval(function() {
+  const now = Date.now();
+  if (now - lastSuccessfulAnimationTime > 2000) {
+    console.warn('ANIMATION FREEZE DETECTED - EMERGENCY RECOVERY');
+    emergencyGameRecovery();
+  }
+}, 2000);
+
+// Emergency game recovery function
+function emergencyGameRecovery() {
+  console.warn("PERFORMING EMERGENCY GAME RECOVERY");
+  
+  try {
+    // Force reset all game state
+    Game.ball.position.set(0, 0, 0);
+    Game.ball.userData.velocity.x = 0;
+    Game.ball.userData.velocity.y = 0;
+    Game.ball.userData.velocity.z = 0;
+    
+    // Reset any game state
+    Game.gameState = 'playing';
+    
+    // Wait a moment then give the ball velocity
+    setTimeout(() => {
+      const angle = (Math.random() - 0.5) * Math.PI / 2;
+      const direction = Math.random() < 0.5 ? 1 : -1;
+      Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+      Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+      
+      // Restart animation loop if needed
+      if (!loopId) {
+        console.log("Restarting animation loop");
+        lastTime = 0;
+        loopId = requestAnimationFrame(animate);
+      }
+    }, 1000);
+    
+    console.warn("EMERGENCY RECOVERY COMPLETE");
+  } catch(e) {
+    console.error("EMERGENCY RECOVERY FAILED:", e);
+    // Last resort - if all else fails, refresh the page
+    // window.location.reload();
+  }
+}
 
 function animate(currentTime = 0) {
-  loopId = requestAnimationFrame(animate);
-  
-  // Calculate delta time in seconds
-  const deltaTime = (currentTime - lastTime) / 1000;
-  lastTime = currentTime;
-  
-  // Skip if delta time is too large (tab was inactive)
-  if (deltaTime > 0.1) return;
-  
-  // DIRECT BOUNDARY DETECTION - much simpler approach 
-  if (Game.ball) {
-    // DIRECTLY detect boundary crossing for immediate scoring
-    if (Game.ball.position.x <= -Constants.FIELD_WIDTH / 2) {
-      quickScore('right');
-      return;
-    }
+  try {
+    // Update watchdog timer - animation is still running
+    lastSuccessfulAnimationTime = Date.now();
     
-    if (Game.ball.position.x >= Constants.FIELD_WIDTH / 2) {
-      quickScore('left');
-      return;
-    }
+    loopId = requestAnimationFrame(animate);
     
-    // Detect stuck ball (anywhere, not just boundaries)
-    if (Math.abs(Game.ball.position.x - lastBallPosX) < 0.001 &&
-        Math.abs(Game.ball.position.y - lastBallPosY) < 0.001) {
-      stuckFrames++;
-      if (stuckFrames > 60) { // Stuck for ~1 second
-        console.log("EMERGENCY: Ball completely stuck, forcing reset");
+    // Calculate delta time in seconds
+    const deltaTime = (currentTime - lastTime) / 1000;
+    lastTime = currentTime;
+    
+    // Skip if delta time is too large (tab was inactive)
+    if (deltaTime > 0.1) return;
+    
+    // EXTREMELY SIMPLIFIED, ROBUST BOUNDARY DETECTION
+    if (Game.ball) {
+      // Handle emergency edge case - ball too far from playfield or in invalid state
+      if (Game.ball.position.x === undefined || 
+          Game.ball.position.y === undefined ||
+          isNaN(Game.ball.position.x) || 
+          isNaN(Game.ball.position.y) || 
+          Math.abs(Game.ball.position.x) > Constants.FIELD_WIDTH + 10) {
+        console.warn("Ball in invalid state - forcing reset");
+        emergencyGameRecovery();
+        return;
+      }
+      
+      // LEFT SCORE: Ball at or beyond left boundary
+      if (Game.ball.position.x <= -Constants.FIELD_WIDTH / 2) {
+        // Score point for right player
+        Game.rightPaddle.userData.score++;
+        UI.updateScoreDisplay();
+        
+        // IMMEDIATE FULL RESET
         Game.ball.position.set(0, 0, 0);
-        Game.ball.userData.velocity.x = Math.cos(Math.PI/4) * Settings.settings.game.baseBallSpeed;
-        Game.ball.userData.velocity.y = Math.sin(Math.PI/4) * Settings.settings.game.baseBallSpeed;
-        stuckFrames = 0;
+        Game.ball.userData.velocity.set(0, 0, 0);
+        
+        // Wait before giving ball velocity
+        setTimeout(() => {
+          if (Game.ball) {
+            const angle = (Math.random() - 0.5) * Math.PI / 2;
+            const direction = Math.random() < 0.5 ? 1 : -1;
+            Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+            Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+          }
+        }, 1000);
+        
+        return;
       }
-    } else {
-      stuckFrames = 0;
+      
+      // RIGHT SCORE: Ball at or beyond right boundary
+      if (Game.ball.position.x >= Constants.FIELD_WIDTH / 2) {
+        // Score point for left player
+        Game.leftPaddle.userData.score++;
+        UI.updateScoreDisplay();
+        
+        // IMMEDIATE FULL RESET
+        Game.ball.position.set(0, 0, 0);
+        Game.ball.userData.velocity.set(0, 0, 0);
+        
+        // Wait before giving ball velocity
+        setTimeout(() => {
+          if (Game.ball) {
+            const angle = (Math.random() - 0.5) * Math.PI / 2;
+            const direction = Math.random() < 0.5 ? 1 : -1;
+            Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+            Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+          }
+        }, 1000);
+        
+        return;
+      }
     }
-    
-    // Store current position for next frame comparison
-    lastBallPosX = Game.ball.position.x;
-    lastBallPosY = Game.ball.position.y;
-  }
 
-  // Update the game state
-  switch (Game.gameState) {
-    case 'menu':
-      // Update menu animation
-      Renderer.updateMenu(deltaTime);
-      break;
-      
-    case 'playing':
-      // Update game logic
-      Game.update(deltaTime);
-      // Update 2.5D pop-out effects
-      Renderer.updatePopOutEffects(deltaTime);
-      break;
-      
-    case 'paused':
-      // Just render the current state
-      // Still update pop-out effects for visual appeal
-      Renderer.updatePopOutEffects(deltaTime);
-      break;
-      
-    case 'finished':
-      // Game over animations
-      Renderer.updatePopOutEffects(deltaTime);
-      break;
-      
-    case 'gameOver':
-      // Temporary state between points
-      Game.update(deltaTime);
-      Renderer.updatePopOutEffects(deltaTime);
-      // Force a short timeout
-      if (Date.now() - Game.gameOverTime >= 1000) {
-        Game.resetBall();
-        Game.gameState = 'playing';
-      }
-      break;
+  // Update the game state - TRY/CATCH each section for maximum robustness
+  try {
+    switch (Game.gameState) {
+      case 'menu':
+        // Update menu animation
+        Renderer.updateMenu(deltaTime);
+        break;
+        
+      case 'playing':
+        // Update game logic
+        Game.update(deltaTime);
+        // Update 2.5D pop-out effects
+        Renderer.updatePopOutEffects(deltaTime);
+        break;
+        
+      case 'paused':
+        // Just render the current state
+        // Still update pop-out effects for visual appeal
+        Renderer.updatePopOutEffects(deltaTime);
+        break;
+        
+      case 'finished':
+        // Game over animations
+        Renderer.updatePopOutEffects(deltaTime);
+        break;
+        
+      case 'gameOver':
+        // Simplified gameOver state handling
+        Game.update(deltaTime);
+        Renderer.updatePopOutEffects(deltaTime);
+        
+        // Force a short timeout
+        if (Date.now() - Game.gameOverTime >= 1000) {
+          Game.gameState = 'playing';
+          
+          // Reset ball position and velocity directly
+          Game.ball.position.set(0, 0, 0);
+          Game.ball.userData.velocity.set(0, 0, 0);
+          
+          // Give ball a new direction after a delay
+          setTimeout(() => {
+            if (Game.ball) {
+              const angle = (Math.random() - 0.5) * Math.PI / 2;
+              const direction = Math.random() < 0.5 ? 1 : -1;
+              Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+              Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+            }
+          }, 500);
+        }
+        break;
+    }
+  } catch (e) {
+    console.error("ERROR in game state update:", e);
+    // Auto-recover from state errors
+    emergencyGameRecovery();
   }
   
-  // Render the scene
-  Renderer.render();
+  // Render the scene with try/catch for maximum resilience
+  try {
+    Renderer.render();
+  } catch (e) {
+    console.error("ERROR in renderer:", e);
+    // Try to recover even from rendering errors
+    emergencyGameRecovery();
+  }
+  } catch (e) {
+    console.error("CRITICAL ERROR in animation loop:", e);
+    emergencyGameRecovery();
+  }
 }
 
 // Initialize loading sequence
