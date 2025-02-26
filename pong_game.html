@@ -1518,17 +1518,41 @@
     
     // Reset ball position
     function resetBall() {
+      // DEBUGGING: Track resets to help find freezing issue
+      console.log("RESET BALL called, gameState =", gameState);
+      
+      // First reset position
       ball.x = gameCanvas.width / 2;
       ball.y = gameCanvas.height / 2;
       
-      // Random angle between -45 and 45 degrees
-      const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+      // Stop the ball temporarily to allow animations to continue
+      const originalDx = ball.dx;
+      const originalDy = ball.dy;
+      const originalSpeed = Math.sqrt(originalDx * originalDx + originalDy * originalDy) || ball.speed;
       
-      // Random direction left or right
-      const direction = Math.random() < 0.5 ? 1 : -1;
+      // Stop ball movement temporarily
+      ball.dx = 0;
+      ball.dy = 0;
       
-      ball.dx = direction * Math.cos(angle) * ball.speed;
-      ball.dy = Math.sin(angle) * ball.speed;
+      // Schedule delayed restart with new direction after a short pause
+      setTimeout(() => {
+        if (gameState === 'playing' || gameState === 'start') {
+          // Random angle between -45 and 45 degrees
+          const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+          
+          // Random direction left or right
+          const direction = Math.random() < 0.5 ? 1 : -1;
+          
+          // Use original speed to maintain game pace
+          ball.dx = direction * Math.cos(angle) * originalSpeed;
+          ball.dy = Math.sin(angle) * originalSpeed;
+          
+          console.log("Ball movement resumed with velocity:", ball.dx, ball.dy);
+        }
+      }, 800);
+      
+      // Return empty to allow animations to continue
+      return;
     }
     
     // Update score display
@@ -2048,6 +2072,15 @@
         // Right player scores
         rightPaddle.score++;
         
+        // Play score sound effect
+        try {
+          const scoreSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3');
+          scoreSound.volume = 0.5;
+          scoreSound.play().catch(e => console.warn('Could not play score sound', e));
+        } catch (e) {
+          console.warn('Could not play score sound', e);
+        }
+        
         // Create floating score animation for right player
         createFloatingScoreAnimation(ball.x, ball.y, 'right');
         
@@ -2064,7 +2097,31 @@
             showGameMessage('GAME OVER', 'AI won! Press RESET to play again');
           }
         } else {
-          resetBall();
+          // IMPORTANT: Set ball position FIRST, then set velocity to zero
+          ball.x = gameCanvas.width / 2;
+          ball.y = gameCanvas.height / 2;
+          
+          // Store original velocity for animation continuity
+          const savedDx = ball.dx;
+          const savedDy = ball.dy;
+          
+          // Stop ball movement
+          ball.dx = 0;
+          ball.dy = 0;
+          
+          // Continue rendering & animation
+          gameState = 'playing';
+          
+          // Wait before launching ball again - keep animations running
+          setTimeout(() => {
+            if (gameState === 'playing') {
+              const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+              const direction = Math.random() < 0.5 ? 1 : -1;
+              const newSpeed = Math.sqrt(savedDx * savedDx + savedDy * savedDy);
+              ball.dx = direction * Math.cos(angle) * newSpeed;
+              ball.dy = Math.sin(angle) * newSpeed;
+            }
+          }, 1000);
         }
         
         updateScoreDisplay();
@@ -2075,6 +2132,15 @@
       if (ball.x + ball.radius > gameCanvas.width) {
         // Left player scores
         leftPaddle.score++;
+        
+        // Play score sound effect
+        try {
+          const scoreSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3');
+          scoreSound.volume = 0.5;
+          scoreSound.play().catch(e => console.warn('Could not play score sound', e));
+        } catch (e) {
+          console.warn('Could not play score sound', e);
+        }
         
         // Create floating score animation for left player
         createFloatingScoreAnimation(ball.x, ball.y, 'left');
@@ -2092,7 +2158,31 @@
             showGameMessage('YOU WIN!', 'You beat the AI! Press RESET to play again');
           }
         } else {
-          resetBall();
+          // IMPORTANT: Set ball position FIRST, then set velocity to zero
+          ball.x = gameCanvas.width / 2;
+          ball.y = gameCanvas.height / 2;
+          
+          // Store original velocity for animation continuity
+          const savedDx = ball.dx;
+          const savedDy = ball.dy;
+          
+          // Stop ball movement
+          ball.dx = 0;
+          ball.dy = 0;
+          
+          // Continue rendering & animation
+          gameState = 'playing';
+          
+          // Wait before launching ball again - keep animations running
+          setTimeout(() => {
+            if (gameState === 'playing') {
+              const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+              const direction = Math.random() < 0.5 ? 1 : -1;
+              const newSpeed = Math.sqrt(savedDx * savedDx + savedDy * savedDy);
+              ball.dx = direction * Math.cos(angle) * newSpeed;
+              ball.dy = Math.sin(angle) * newSpeed;
+            }
+          }, 1000);
         }
         
         updateScoreDisplay();
@@ -2602,17 +2692,36 @@
     
     // Game loop
     function gameLoop() {
-      // Update background
-      updateBackground();
-      
-      // Update game logic
-      update();
-      
-      // Render game
-      render();
-      
-      // Next frame
-      requestAnimationFrame(gameLoop);
+      try {
+        // DEBUGGING: Track game loop execution
+        if (Math.random() < 0.01) console.log("Game loop running, state =", gameState);
+        
+        // Update background - ALWAYS RUN THIS FOR ANIMATIONS
+        updateBackground();
+        
+        // Update game logic if in appropriate state
+        if (gameState === 'playing' || gameState === 'start') {
+          update();
+        }
+        
+        // ALWAYS render game - critical for animations to continue
+        render();
+        
+        // Next frame
+        requestAnimationFrame(gameLoop);
+      } catch (e) {
+        console.error("Game loop error:", e);
+        
+        // Emergency recovery - keep animations going no matter what
+        ball.x = gameCanvas.width / 2;
+        ball.y = gameCanvas.height / 2;
+        ball.dx = 0;
+        ball.dy = 0;
+        gameState = 'playing';
+        
+        // Continue loop
+        requestAnimationFrame(gameLoop);
+      }
     }
     
     // Initialize the game
