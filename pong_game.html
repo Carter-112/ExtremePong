@@ -1518,103 +1518,124 @@
     
     // Reset ball position
     function resetBall() {
-      // DEBUGGING: Track resets to help find freezing issue
-      console.log("RESET BALL called, gameState =", gameState);
+      // Check if this is the initial game start or after scoring
+      const isInitialStart = (gameState === 'start');
+      const isAfterScoring = (ball.dx === 0 && ball.dy === 0 && gameState === 'playing');
+      
+      console.log("RESET BALL called, gameState =", gameState, "isInitialStart:", isInitialStart);
       
       // First reset position
       ball.x = gameCanvas.width / 2;
       ball.y = gameCanvas.height / 2;
       
-      // Get current ball speed - ensure we have a good speed even if previously zero
+      // Get current ball speed (or use default if no previous speed)
       const originalDx = ball.dx;
       const originalDy = ball.dy;
       const originalSpeed = Math.sqrt(originalDx * originalDx + originalDy * originalDy) || ball.speed;
       
-      // Add a small visual pulse effect to indicate reset
-      const ballPulse = document.createElement('div');
-      ballPulse.style.position = 'absolute';
-      ballPulse.style.left = '50%';
-      ballPulse.style.top = '50%';
-      ballPulse.style.transform = 'translate(-50%, -50%)';
-      ballPulse.style.width = '30px';
-      ballPulse.style.height = '30px';
-      ballPulse.style.borderRadius = '50%';
-      ballPulse.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-      ballPulse.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.9)';
-      ballPulse.style.zIndex = '5';
-      ballPulse.style.pointerEvents = 'none';
-      ballPulse.style.animation = 'ballReset 0.7s ease-out';
-      
-      // Create style for animation if it doesn't exist
-      if (!document.getElementById('ball-reset-style')) {
-        const style = document.createElement('style');
-        style.id = 'ball-reset-style';
-        style.textContent = `
-          @keyframes ballReset {
-            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; }
-            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.5; }
-            100% { transform: translate(-50%, -50%) scale(0.1); opacity: 0; }
-          }
-        `;
-        document.head.appendChild(style);
+      // For initial start, set ball in motion immediately without delay
+      if (isInitialStart) {
+        // Random angle between -45 and 45 degrees
+        const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+        
+        // Random direction left or right
+        const direction = Math.random() < 0.5 ? 1 : -1;
+        
+        // Set to default speed for game start
+        ball.dx = direction * Math.cos(angle) * ball.speed;
+        ball.dy = Math.sin(angle) * ball.speed;
+        
+        console.log("Initial ball velocity set:", ball.dx, ball.dy);
+        return;
       }
       
-      document.getElementById('ui-container').appendChild(ballPulse);
-      
-      // Remove the pulse element after animation completes
-      setTimeout(() => ballPulse.remove(), 700);
-      
-      // Stop ball movement temporarily but keep game state active
-      ball.dx = 0;
-      ball.dy = 0;
-      
-      // IMPORTANT: Always set a non-zero velocity after the pause
-      // Schedule delayed restart with new direction after a short pause
-      setTimeout(() => {
-        if (gameState === 'playing' || gameState === 'start') {
-          // Random angle between -45 and 45 degrees
-          const angle = (Math.random() * 90 - 45) * Math.PI / 180;
-          
-          // Random direction left or right
-          const direction = Math.random() < 0.5 ? 1 : -1;
-          
-          // Use original speed to maintain game pace, with minimum speed guarantee
-          const newSpeed = Math.max(originalSpeed, ball.speed);
-          ball.dx = direction * Math.cos(angle) * newSpeed;
-          ball.dy = Math.sin(angle) * newSpeed;
-          
-          console.log("Ball movement resumed with velocity:", ball.dx, ball.dy);
-          
-          // Create a small burst effect when the ball starts moving
-          const burstParticles = 8;
-          for (let i = 0; i < burstParticles; i++) {
-            const angle = (i / burstParticles) * Math.PI * 2;
-            const distance = 2 + Math.random() * 2;
-            const particle = {
-              x: ball.x,
-              y: ball.y,
-              radius: Math.random() * 2 + 1,
-              color: ball.dx > 0 ? leftPaddle.color : rightPaddle.color,
-              dx: Math.cos(angle) * distance,
-              dy: Math.sin(angle) * distance,
-              life: 30
-            };
-            
-            // Add to the game particles
-            particles.push(particle);
-            
-            // Remove after time expires
-            setTimeout(() => {
-              const index = particles.indexOf(particle);
-              if (index > -1) {
-                particles.splice(index, 1);
-              }
-            }, 500);
-          }
+      // If after scoring, add visual pulse effect
+      if (isAfterScoring) {
+        const ballPulse = document.createElement('div');
+        ballPulse.style.position = 'absolute';
+        ballPulse.style.left = '50%';
+        ballPulse.style.top = '50%';
+        ballPulse.style.transform = 'translate(-50%, -50%)';
+        ballPulse.style.width = '30px';
+        ballPulse.style.height = '30px';
+        ballPulse.style.borderRadius = '50%';
+        ballPulse.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
+        ballPulse.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.9)';
+        ballPulse.style.zIndex = '5';
+        ballPulse.style.pointerEvents = 'none';
+        ballPulse.style.animation = 'ballReset 0.7s ease-out';
+        
+        // Create style for animation if it doesn't exist
+        if (!document.getElementById('ball-reset-style')) {
+          const style = document.createElement('style');
+          style.id = 'ball-reset-style';
+          style.textContent = `
+            @keyframes ballReset {
+              0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; }
+              50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.5; }
+              100% { transform: translate(-50%, -50%) scale(0.1); opacity: 0; }
+            }
+          `;
+          document.head.appendChild(style);
         }
-      }, 800);
+        
+        document.getElementById('ui-container').appendChild(ballPulse);
+        
+        // Remove the pulse element after animation completes
+        setTimeout(() => ballPulse.remove(), 700);
+        
+        // IMPORTANT: After scoring, always schedule ball to move after delay
+        // Stop ball movement temporarily but keep game state active
+        ball.dx = 0;
+        ball.dy = 0;
+        
+        // Schedule delayed restart with new direction after a short pause
+        setTimeout(() => {
+          if (gameState === 'playing' || gameState === 'start') {
+            // Random angle between -45 and 45 degrees
+            const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+            
+            // Random direction left or right
+            const direction = Math.random() < 0.5 ? 1 : -1;
+            
+            // Use original speed to maintain game pace, with minimum speed guarantee
+            const newSpeed = Math.max(originalSpeed, ball.speed);
+            ball.dx = direction * Math.cos(angle) * newSpeed;
+            ball.dy = Math.sin(angle) * newSpeed;
+            
+            console.log("Ball movement resumed with velocity:", ball.dx, ball.dy);
+            
+            // Create a small burst effect when the ball starts moving
+            const burstParticles = 8;
+            for (let i = 0; i < burstParticles; i++) {
+              const angle = (i / burstParticles) * Math.PI * 2;
+              const distance = 2 + Math.random() * 2;
+              const particle = {
+                x: ball.x,
+                y: ball.y,
+                radius: Math.random() * 2 + 1,
+                color: ball.dx > 0 ? leftPaddle.color : rightPaddle.color,
+                dx: Math.cos(angle) * distance,
+                dy: Math.sin(angle) * distance,
+                life: 30
+              };
+              
+              // Add to the game particles
+              particles.push(particle);
+              
+              // Remove after time expires
+              setTimeout(() => {
+                const index = particles.indexOf(particle);
+                if (index > -1) {
+                  particles.splice(index, 1);
+                }
+              }, 500);
+            }
+          }
+        }, 800);
+      }
       
-      // Return empty to allow animations to continue
+      // Allow animations to continue
       return;
     }
     
