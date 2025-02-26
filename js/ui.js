@@ -52,13 +52,13 @@ const UI = {
   },
   
   /**
-   * Initialize background animation
+   * Initialize background animation with cosmic particles effect
    */
   initBackgroundAnimation: function() {
     try {
-      // Create and initialize stars
-      const stars = [];
-      const numStars = 100;
+      // Create and initialize particles
+      const particles = [];
+      const numParticles = 70;
       
       // Create canvas if not exists
       let canvas = document.getElementById('backgroundStars');
@@ -78,47 +78,94 @@ const UI = {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       
-      // Create stars
-      for (let i = 0; i < numStars; i++) {
-        stars.push({
+      // Get random color for particles
+      function getRandomColor() {
+        const colors = [
+          'rgba(0, 252, 255, 0.7)', // Cyan
+          'rgba(255, 0, 255, 0.7)', // Magenta
+          'rgba(255, 255, 0, 0.7)', // Yellow
+          'rgba(0, 255, 102, 0.7)'  // Green
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+      }
+      
+      // Create particles
+      for (let i = 0; i < numParticles; i++) {
+        particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          radius: Math.random() * 1.5 + 0.5,
-          color: `rgba(${Math.random() * 100 + 155}, ${Math.random() * 100 + 155}, ${Math.random() * 255}, ${Math.random() * 0.5 + 0.5})`,
-          speed: Math.random() * 0.3 + 0.1
+          radius: Math.random() * 3 + 1,
+          color: getRandomColor(),
+          dx: (Math.random() - 0.5) * 1.5,
+          dy: (Math.random() - 0.5) * 1.5
         });
       }
       
       // Animation function
-      function animateStars() {
+      function animateBackground() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Draw background
+        // Draw starry background
         ctx.fillStyle = 'rgb(15, 15, 42)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw stars
-        stars.forEach(star => {
+        // Draw gradient overlay
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, 'rgba(0, 20, 60, 0.5)');
+        gradient.addColorStop(1, 'rgba(30, 0, 60, 0.5)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Update and draw particles
+        for (let p of particles) {
+          p.x += p.dx;
+          p.y += p.dy;
+          
+          // Wrap around screen
+          if (p.x < 0) p.x = canvas.width;
+          if (p.x > canvas.width) p.x = 0;
+          if (p.y < 0) p.y = canvas.height;
+          if (p.y > canvas.height) p.y = 0;
+          
+          // Draw particle
           ctx.beginPath();
-          ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-          ctx.fillStyle = star.color;
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
           ctx.fill();
           
-          // Move star
-          star.y += star.speed;
-          
-          // Reset if off screen
-          if (star.y > canvas.height) {
-            star.y = 0;
-            star.x = Math.random() * canvas.width;
-          }
-        });
+          // Draw glow
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = p.color;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
         
-        requestAnimationFrame(animateStars);
+        // Draw animated lines between nearby particles
+        ctx.strokeStyle = 'rgba(0, 252, 255, 0.2)';
+        ctx.lineWidth = 1;
+        
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 150) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.globalAlpha = 1 - (distance / 150);
+              ctx.stroke();
+              ctx.globalAlpha = 1;
+            }
+          }
+        }
+        
+        requestAnimationFrame(animateBackground);
       }
       
       // Start animation
-      animateStars();
+      animateBackground();
       
       // Handle window resize
       window.addEventListener('resize', () => {
@@ -126,7 +173,7 @@ const UI = {
         canvas.height = window.innerHeight;
       });
       
-      console.log("Background animation initialized");
+      console.log("Cosmic background animation initialized");
     } catch (error) {
       console.error("Error initializing background animation:", error);
     }
