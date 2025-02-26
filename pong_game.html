@@ -1550,8 +1550,8 @@
       
       // For initial start, set ball in motion immediately without delay
       if (isInitialStart) {
-        // Random angle between -45 and 45 degrees
-        const angle = (Math.random() * 90 - 45) * Math.PI / 180;
+        // Limited angle between -25 and 25 degrees for more horizontal movement
+        const angle = (Math.random() * 50 - 25) * Math.PI / 180;
         
         // Random direction left or right
         const direction = Math.random() < 0.5 ? 1 : -1;
@@ -1559,6 +1559,16 @@
         // Set to default speed for game start
         ball.dx = direction * Math.cos(angle) * ball.speed;
         ball.dy = Math.sin(angle) * ball.speed;
+        
+        // Enforce minimums for horizontal speed (at least 60% of total speed)
+        if (Math.abs(ball.dx) < ball.speed * 0.6) {
+            ball.dx = (ball.dx >= 0 ? 1 : -1) * ball.speed * 0.6;
+        }
+        
+        // Limit vertical speed to prevent "up and down" balls (max 40% of total speed)
+        if (Math.abs(ball.dy) > ball.speed * 0.4) {
+            ball.dy = (ball.dy >= 0 ? 1 : -1) * ball.speed * 0.4;
+        }
         
         console.log("Initial ball velocity set:", ball.dx, ball.dy);
         return;
@@ -1625,15 +1635,27 @@
             const newSpeed = Math.max(originalSpeed, ball.speed);
             
             // CRITICAL: Force ball velocity to non-zero values with minimum values
-            // Make sure they're at least 3 in magnitude to avoid stalling
-            const cosValue = Math.cos(angle);
-            const sinValue = Math.sin(angle);
-            ball.dx = direction * (Math.abs(cosValue) < 0.3 ? (cosValue >= 0 ? 0.3 : -0.3) : cosValue) * newSpeed;
-            ball.dy = (Math.abs(sinValue) < 0.2 ? (sinValue >= 0 ? 0.2 : -0.2) : sinValue) * newSpeed;
+            // Generate a better angle that focuses more on horizontal movement
+            // We want the angle to be mostly horizontal with limited vertical
+            const limitedAngle = (Math.random() * 50 - 25) * Math.PI / 180; // -25 to +25 degrees
             
-            // Extra safeguard to ensure we have movement
+            // Compute velocity with strong horizontal component
+            ball.dx = direction * Math.cos(limitedAngle) * newSpeed;
+            ball.dy = Math.sin(limitedAngle) * newSpeed;
+            
+            // Enforce minimums for horizontal speed (at least 60% of total speed)
+            if (Math.abs(ball.dx) < newSpeed * 0.6) {
+                ball.dx = (ball.dx >= 0 ? 1 : -1) * newSpeed * 0.6;
+            }
+            
+            // Limit vertical speed to prevent "up and down" balls (max 40% of total speed)
+            if (Math.abs(ball.dy) > newSpeed * 0.4) {
+                ball.dy = (ball.dy >= 0 ? 1 : -1) * newSpeed * 0.4;
+            }
+            
+            // Final sanity check - make sure we have significant horizontal movement
             if (Math.abs(ball.dx) < 3) {
-              ball.dx = ball.dx >= 0 ? 3 : -3;
+                ball.dx = (ball.dx >= 0 ? 1 : -1) * 3;
             }
             
             // Verify velocity was actually set
@@ -1758,28 +1780,62 @@
     function resetRallyCounter() {
       console.log("RESETTING RALLY COUNTER - consecutiveHits was:", consecutiveHits);
       consecutiveHits = 0;
-      const counter = document.getElementById('rally-counter');
-      if (counter) {
-        // Completely clear contents
-        counter.innerHTML = '';
+      
+      try {
+        // Get counter element
+        const counter = document.getElementById('rally-counter');
         
-        // Forcibly hide
-        counter.style.display = 'none';
-        counter.style.opacity = '0';
-        
-        // Remove all animation classes
-        counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
-        
-        // Remove data attributes
-        delete counter.dataset.epicEffectsAdded;
-        
-        // Remove any transforms or animations
-        counter.style.transform = 'translate(-50%, -50%)';
-        counter.style.animation = 'none';
-        
-        console.log("Rally counter reset and hidden");
-      } else {
-        console.warn("Rally counter element not found!");
+        if (counter) {
+          // MOST AGGRESSIVE METHOD: Remove from DOM and create new element
+          const parent = counter.parentNode;
+          if (parent) {
+            // Create a brand new element to replace the old one
+            const newElement = document.createElement('div');
+            newElement.id = 'rally-counter';
+            newElement.className = 'rally-counter';
+            newElement.style.display = 'none';
+            newElement.style.position = 'absolute';
+            newElement.style.top = '50%';
+            newElement.style.left = '50%';
+            newElement.style.transform = 'translate(-50%, -50%)';
+            
+            // Replace old element with new one
+            parent.replaceChild(newElement, counter);
+            console.log("Rally counter completely REPLACED");
+          } else {
+            // Fallback to traditional clearing
+            counter.innerHTML = '';
+            counter.style.cssText = 'display:none !important; opacity:0 !important; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);';
+            counter.className = 'rally-counter';
+            counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
+            
+            // Try to remove all data attributes
+            for (const attr in counter.dataset) {
+              delete counter.dataset[attr];
+            }
+            
+            console.log("Rally counter forcibly cleared");
+          }
+        } else {
+          console.warn("Rally counter element not found!");
+          
+          // Try to find the UI container and create a new counter
+          const uiContainer = document.getElementById('ui-container');
+          if (uiContainer) {
+            const newCounter = document.createElement('div');
+            newCounter.id = 'rally-counter';
+            newCounter.className = 'rally-counter';
+            newCounter.style.display = 'none';
+            newCounter.style.position = 'absolute';
+            newCounter.style.top = '50%';
+            newCounter.style.left = '50%';
+            newCounter.style.transform = 'translate(-50%, -50%)';
+            uiContainer.appendChild(newCounter);
+            console.log("Created new rally counter");
+          }
+        }
+      } catch (e) {
+        console.error("Error while resetting rally counter:", e);
       }
     }
     
