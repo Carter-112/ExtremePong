@@ -1756,9 +1756,23 @@
       consecutiveHits = 0;
       const counter = document.getElementById('rally-counter');
       if (counter) {
+        // Completely clear contents
+        counter.innerHTML = '';
+        
+        // Forcibly hide
         counter.style.display = 'none';
+        counter.style.opacity = '0';
+        
+        // Remove all animation classes
         counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
+        
+        // Remove data attributes
         delete counter.dataset.epicEffectsAdded;
+        
+        // Remove any transforms or animations
+        counter.style.transform = 'translate(-50%, -50%)';
+        counter.style.animation = 'none';
+        
         console.log("Rally counter reset and hidden");
       } else {
         console.warn("Rally counter element not found!");
