@@ -40,6 +40,8 @@ const Input = {
 // Animation loop
 let lastTime = 0;
 let loopId = null;
+let lastBallPosX = 0;
+let stuckFrames = 0;
 
 function animate(currentTime = 0) {
   loopId = requestAnimationFrame(animate);
@@ -51,24 +53,59 @@ function animate(currentTime = 0) {
   // Skip if delta time is too large (tab was inactive)
   if (deltaTime > 0.1) return;
   
-  // Log game state periodically (every 3 seconds) for debugging
-  if (Math.floor(currentTime / 3000) !== Math.floor((currentTime - deltaTime * 1000) / 3000)) {
-    console.log('Current game state:', Game.gameState);
-  }
-  
-  // Failsafe for any abnormal game state
-  // If ball is completely outside field, force a reset
-  if (Game.ball && (Math.abs(Game.ball.position.x) > Constants.FIELD_WIDTH / 2 + 5)) {
-    console.log("EMERGENCY: Ball is way outside field, resetting game");
-    Game.resetBall();
-    Game.gameState = 'playing';
-  }
-  
-  // Force timeout on gameOver state
-  if (Game.gameState === 'gameOver' && Game.gameOverTime && (Date.now() - Game.gameOverTime > 2000)) {
-    console.log("EMERGENCY: gameOver state lasted too long, forcing reset");
-    Game.resetBall();
-    Game.gameState = 'playing';
+  // SUPER CRITICAL STUCK BALL DETECTION
+  if (Game.ball) {
+    // Detect if ball is stuck at boundaries
+    if (Math.abs(Game.ball.position.x) >= Constants.FIELD_WIDTH / 2 - 1) {
+      // Check if the x position hasn't changed
+      if (Math.abs(Game.ball.position.x - lastBallPosX) < 0.001) {
+        stuckFrames++;
+        
+        // After 5 frames of being stuck, force fix
+        if (stuckFrames > 5) {
+          console.log("CRITICAL: Ball detected stuck at boundary:", Game.ball.position.x);
+          
+          // Update score
+          if (Game.ball.position.x < 0) {
+            // Right player scores
+            Game.rightPaddle.userData.score++;
+          } else {
+            // Left player scores
+            Game.leftPaddle.userData.score++;
+          }
+          
+          // Update UI
+          UI.updateScoreDisplay();
+          
+          // Completely reset the ball and game state
+          Game.ball.position.set(0, 0, 0);
+          Game.ball.userData.velocity.x = 0;
+          Game.ball.userData.velocity.y = 0;
+          Game.ball.userData.velocity.z = 0;
+          Game.gameState = 'playing';
+          
+          // Wait before giving the ball velocity
+          setTimeout(() => {
+            // Only set if still in playing state
+            if (Game.gameState === 'playing') {
+              const angle = (Math.random() - 0.5) * Math.PI / 2;
+              const direction = Math.random() < 0.5 ? 1 : -1;
+              Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+              Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+            }
+          }, 500);
+          
+          stuckFrames = 0;
+        }
+      } else {
+        stuckFrames = 0;
+      }
+    } else {
+      stuckFrames = 0;
+    }
+    
+    // Store current position for next frame comparison
+    lastBallPosX = Game.ball.position.x;
   }
 
   // Update the game state
