@@ -84,6 +84,9 @@ const Game = {
    * Reset the game to initial state
    */
   resetGame: function() {
+    // Ensure proper game state reset
+    this.gameState = 'playing';
+    
     // Reset scores
     if (this.leftPaddle && this.rightPaddle) {
       this.leftPaddle.userData.score = 0;

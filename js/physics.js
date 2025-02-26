@@ -361,8 +361,11 @@ const Physics = {
         Audio.playSoundWithVolume(Audio.sounds.paddle);
         Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, 0, 0x2196F3);
       } else {
-        // Ensure the ball is removed from the boundaries
+        // Reset ball position and velocity
         Game.ball.position.x = 0;
+        Game.ball.position.y = 0;
+        Game.ball.userData.velocity.x = 0;
+        Game.ball.userData.velocity.y = 0;
         
         // Score point for right player
         Game.rightPaddle.userData.score++;
@@ -383,6 +386,14 @@ const Physics = {
         // Check for game end
         if (Game.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
           Game.endGame('right');
+        } else {
+          // Force reset after a short delay if not game end
+          setTimeout(() => {
+            if (Game.gameState === 'gameOver') {
+              Game.resetBall();
+              Game.gameState = 'playing';
+            }
+          }, 1500);
         }
       }
     }
@@ -407,8 +418,11 @@ const Physics = {
         Audio.playSoundWithVolume(Audio.sounds.paddle);
         Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, 0, 0x2196F3);
       } else {
-        // Ensure the ball is removed from the boundaries
+        // Reset ball position and velocity
         Game.ball.position.x = 0;
+        Game.ball.position.y = 0;
+        Game.ball.userData.velocity.x = 0;
+        Game.ball.userData.velocity.y = 0;
         
         // Score point for left player
         Game.leftPaddle.userData.score++;
@@ -429,6 +443,14 @@ const Physics = {
         // Check for game end
         if (Game.leftPaddle.userData.score >= Settings.settings.game.maxPoints) {
           Game.endGame('left');
+        } else {
+          // Force reset after a short delay if not game end
+          setTimeout(() => {
+            if (Game.gameState === 'gameOver') {
+              Game.resetBall();
+              Game.gameState = 'playing';
+            }
+          }, 1500);
         }
       }
     }
@@ -438,8 +460,13 @@ const Physics = {
       const mb = PowerUps.multiBalls[i];
       
       if (mb.mesh.position.x < -Constants.FIELD_WIDTH / 2) {
+        // Reset ball velocity to prevent residual movement
+        mb.velocity.x = 0;
+        mb.velocity.y = 0;
+        
         // Move the ball away from boundary to prevent getting stuck
         mb.mesh.position.x = 0; 
+        mb.mesh.position.y = 0;
         
         // Score for right player
         Game.rightPaddle.userData.score++;
@@ -457,8 +484,13 @@ const Physics = {
           Game.endGame('right');
         }
       } else if (mb.mesh.position.x > Constants.FIELD_WIDTH / 2) {
+        // Reset ball velocity to prevent residual movement
+        mb.velocity.x = 0;
+        mb.velocity.y = 0;
+        
         // Move the ball away from boundary to prevent getting stuck
         mb.mesh.position.x = 0;
+        mb.mesh.position.y = 0;
         
         // Score for left player
         Game.leftPaddle.userData.score++;
