@@ -116,6 +116,8 @@ const Store = {
    * @param {string} itemId - Item identifier
    */
   purchaseItem: function(itemId) {
+    console.log(`Attempting to purchase item: ${itemId}`);
+    
     // Check if user is logged in
     if (!this.isLoggedIn) {
       Utils.showNotification('Login Required', 'Please login or create an account to make purchases.', 'warning');
@@ -133,14 +135,18 @@ const Store = {
       'shield_generator': 350
     };
     
-    // Apply 50% discount if promo is active
-    const finalPrice = this.promoActive ? Math.floor(prices[itemId] / 2) : prices[itemId];
+    // First, mark the button as owned if the item is already owned
+    // This is a defensive measure in case localStorage gets out of sync
+    this.updateItemButtonStatus(itemId);
     
-    // Check if item is already owned
+    // Check if item is already owned (after potential button update)
     if (this.playerItems && this.playerItems[itemId]) {
       Utils.showNotification('Already Owned', 'You already own this item!', 'info');
       return;
     }
+    
+    // Get price (with potential promo discount)
+    const finalPrice = this.promoActive ? Math.floor(prices[itemId] / 2) : prices[itemId];
     
     // Check if player has enough credits
     if (this.playerCredits >= finalPrice) {
@@ -149,6 +155,8 @@ const Store = {
       
       if (confirmPurchase) {
         try {
+          console.log(`Processing purchase for ${itemId} at ${finalPrice} credits`);
+          
           // Initialize player items if needed
           if (!this.playerItems) {
             this.playerItems = {};
@@ -156,6 +164,8 @@ const Store = {
           
           // Deduct credits
           this.playerCredits -= finalPrice;
+          
+          // Update UI credits display
           if (document.getElementById('playerCredits')) {
             document.getElementById('playerCredits').textContent = this.playerCredits;
           }
@@ -180,7 +190,7 @@ const Store = {
             };
           }
           
-          // Update player account data - this is critical for persistence
+          // Make sure user data exists and is valid
           if (this.isLoggedIn && this.userEmail && this.registeredUsers[this.userEmail]) {
             // Ensure items object exists
             if (!this.registeredUsers[this.userEmail].items) {
@@ -190,7 +200,7 @@ const Store = {
             // Update item in account - MOST IMPORTANT STEP
             this.registeredUsers[this.userEmail].items[itemId] = true;
             
-            // Update credits in account - ALSO CRITICAL
+            // Update credits in account
             this.registeredUsers[this.userEmail].credits = this.playerCredits;
             
             // Add transaction record
@@ -198,6 +208,7 @@ const Store = {
               this.registeredUsers[this.userEmail].transactions = [];
             }
             
+            // Add transaction to history
             this.registeredUsers[this.userEmail].transactions.push({
               type: 'item_purchase',
               itemId: itemId,
@@ -211,91 +222,139 @@ const Store = {
             console.log('Items owned:', Object.keys(this.registeredUsers[this.userEmail].items));
           }
           
+          // Update the button state immediately
+          this.updateItemButtonStatus(itemId);
+          
           // Play purchase sound
-          const purchaseSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3');
-          purchaseSound.volume = 0.5;
-          purchaseSound.play().catch(e => console.warn('Could not play purchase sound', e));
+          try {
+            const purchaseSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2058/2058-preview.mp3');
+            purchaseSound.volume = 0.5;
+            purchaseSound.play().catch(e => console.warn('Could not play purchase sound', e));
+          } catch (soundError) {
+            console.warn('Could not play purchase sound:', soundError);
+          }
           
           // Show success notification
           Utils.showNotification('Purchase Successful', `You have purchased the item for ${finalPrice} credits${this.promoActive ? ' (50% OFF!)' : ''}!`, 'success');
           
-          // ---------- CRITICAL SAVE SECTION ----------
-          // This is the most important part to ensure data persists
-          
-          // First save
+          // Save to localStorage immediately
           this.savePlayerData();
           
-          // Save directly to localStorage as a backup
-          try {
-            // Direct save of critical purchase data
-            const purchaseBackup = {
-              email: this.userEmail,
-              credits: this.playerCredits,
-              item: itemId,
-              timestamp: Date.now()
-            };
-            localStorage.setItem('lastPurchaseBackup', JSON.stringify(purchaseBackup));
-            
-            // Also save raw registered users data directly
-            localStorage.setItem('cosmicPongUsers_backup', JSON.stringify(this.registeredUsers));
-          } catch (e) {
-            console.error('Error saving backup data:', e);
-          }
+          // Create backup
+          this.saveBackupData(itemId);
           
-          // Multiple redundant saves with increasing delays
-          const saveIntervals = [100, 500, 1000, 2000];
-          saveIntervals.forEach(delay => {
-            setTimeout(() => {
-              // Verify data is still correct
-              if (this.isLoggedIn && this.registeredUsers && this.registeredUsers[this.userEmail]) {
-                // Check if item is still in account
-                if (!this.registeredUsers[this.userEmail].items || 
-                    !this.registeredUsers[this.userEmail].items[itemId]) {
-                  console.warn(`Item ${itemId} not found in account at ${delay}ms check, fixing...`);
-                  
-                  // Ensure items object exists
-                  if (!this.registeredUsers[this.userEmail].items) {
-                    this.registeredUsers[this.userEmail].items = {};
-                  }
-                  
-                  // Fix the item
-                  this.registeredUsers[this.userEmail].items[itemId] = true;
-                }
-                
-                // Check if credits are correct
-                if (this.registeredUsers[this.userEmail].credits !== this.playerCredits) {
-                  console.warn(`Credits mismatch at ${delay}ms check, fixing...`);
-                  this.registeredUsers[this.userEmail].credits = this.playerCredits;
-                }
-                
-                // Save again
-                this.savePlayerData();
-                
-                // Direct localStorage operation as a backup
-                try {
-                  localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
-                } catch (e) {
-                  console.error(`Error saving at ${delay}ms:`, e);
-                }
-              }
-            }, delay);
-          });
-          
-          // Update UI to show owned item
-          const button = document.querySelector(`button[onclick="Store.purchaseItem('${itemId}')"]`);
-          if (button) {
-            button.textContent = 'Owned';
-            button.disabled = true;
-            button.classList.add('active');
-          }
+          console.log('Purchase completed successfully');
         } catch (error) {
           console.error('Error during purchase:', error);
           Utils.showNotification('Purchase Error', 'There was an error processing your purchase. Please try again.', 'error');
         }
       }
     } else {
-      // Show error notification
+      // Show error notification for insufficient credits
       Utils.showNotification('Insufficient Credits', `You need ${finalPrice - this.playerCredits} more credits. Visit the store to purchase credits.`, 'error');
+    }
+  },
+  
+  /**
+   * Save backup data after purchase
+   */
+  saveBackupData: function(itemId) {
+    try {
+      // Direct save of critical purchase data
+      const purchaseBackup = {
+        email: this.userEmail,
+        credits: this.playerCredits,
+        item: itemId,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('lastPurchaseBackup', JSON.stringify(purchaseBackup));
+      
+      // Also save raw registered users data directly
+      localStorage.setItem('cosmicPongUsers_backup', JSON.stringify(this.registeredUsers));
+      
+      // Schedule multiple saves to ensure data persistence
+      const saveIntervals = [100, 500, 1000, 2000];
+      saveIntervals.forEach(delay => {
+        setTimeout(() => this.verifyAndFixPurchaseData(itemId), delay);
+      });
+    } catch (e) {
+      console.error('Error saving backup data:', e);
+    }
+  },
+  
+  /**
+   * Verify and fix purchase data if needed
+   */
+  verifyAndFixPurchaseData: function(itemId) {
+    try {
+      if (this.isLoggedIn && this.registeredUsers && this.registeredUsers[this.userEmail]) {
+        // Check if item is still in account
+        if (!this.registeredUsers[this.userEmail].items || 
+            !this.registeredUsers[this.userEmail].items[itemId]) {
+          console.warn(`Item ${itemId} not found in account, fixing...`);
+          
+          // Ensure items object exists
+          if (!this.registeredUsers[this.userEmail].items) {
+            this.registeredUsers[this.userEmail].items = {};
+          }
+          
+          // Fix the item
+          this.registeredUsers[this.userEmail].items[itemId] = true;
+        }
+        
+        // Check if credits are correct
+        if (this.registeredUsers[this.userEmail].credits !== this.playerCredits) {
+          console.warn(`Credits mismatch, fixing...`);
+          this.registeredUsers[this.userEmail].credits = this.playerCredits;
+        }
+        
+        // Save again
+        this.savePlayerData();
+        
+        // Also update button status again for safety
+        this.updateItemButtonStatus(itemId);
+        
+        // Direct localStorage operation as a backup
+        try {
+          localStorage.setItem('cosmicPongUsers', JSON.stringify(this.registeredUsers));
+        } catch (e) {
+          console.error(`Error during verification save:`, e);
+        }
+      }
+    } catch (error) {
+      console.error("Error verifying purchase data:", error);
+    }
+  },
+  
+  /**
+   * Update item button status
+   */
+  updateItemButtonStatus: function(itemId) {
+    try {
+      const isOwned = this.playerItems && this.playerItems[itemId];
+      
+      // Find the button for this item
+      const button = document.querySelector(`button[onclick="Store.purchaseItem('${itemId}')"]`);
+      if (button) {
+        if (isOwned) {
+          // Mark as owned
+          button.textContent = 'Owned';
+          button.disabled = true;
+          button.classList.add('active');
+          console.log(`Button for ${itemId} marked as owned`);
+        } else {
+          // Ensure it's purchasable
+          if (button.textContent === 'Owned') {
+            button.textContent = 'Purchase';
+          }
+          button.disabled = !this.isLoggedIn;
+          console.log(`Button for ${itemId} marked as purchasable`);
+        }
+      } else {
+        console.warn(`Button for ${itemId} not found in DOM`);
+      }
+    } catch (error) {
+      console.error("Error updating button status:", error);
     }
   },
   
