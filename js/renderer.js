@@ -582,7 +582,7 @@ const Renderer = {
     });
     
     // Make power-ups pop out more when player approaches them
-    PowerUps.activePowerUps.forEach(powerUp => {
+    PowerUps.powerUps.forEach(powerUp => {
       if (!powerUp.mesh) return;
       
       // Calculate distance to ball
@@ -594,13 +594,13 @@ const Renderer = {
         powerUp.mesh.scale.set(scale, scale, scale);
         
         // Increase glow intensity
-        if (powerUp.glow) {
-          powerUp.glow.material.opacity = 0.7 * (1 - distToBall / 10);
+        if (powerUp.mesh.material) {
+          powerUp.mesh.material.emissiveIntensity = 0.8 * (1 - distToBall / 10);
         }
       } else {
         powerUp.mesh.scale.set(1, 1, 1);
-        if (powerUp.glow) {
-          powerUp.glow.material.opacity = 0.3;
+        if (powerUp.mesh.material) {
+          powerUp.mesh.material.emissiveIntensity = 0.5;
         }
       }
     });
@@ -700,11 +700,11 @@ const Renderer = {
   
   /**
    * Create camera shake effect
+   * @param {number} intensity - Shake intensity (default: 0.5)
    */
-  createCameraShake: function() {
+  createCameraShake: function(intensity = 0.5) {
     const originalPosition = this.camera.position.clone();
     const duration = 0.3; // seconds
-    const intensity = 0.5;
     let elapsed = 0;
     
     const updateShake = () => {
@@ -727,6 +727,106 @@ const Renderer = {
     };
     
     requestAnimationFrame(updateShake);
+  },
+  
+  /**
+   * Create super shot trail effect for the ball
+   */
+  createSuperShotTrail: function() {
+    if (!Game.ball) return;
+    
+    // Create special trail for super shot
+    const trailCount = 25;
+    const trailSegments = [];
+    
+    // Direction of ball movement
+    const ballDirection = new THREE.Vector3().copy(Game.ball.userData.velocity).normalize();
+    
+    // Create trail segments
+    for (let i = 0; i < trailCount; i++) {
+      const size = Constants.BALL_RADIUS * (1 - i / (trailCount * 0.7));
+      
+      // Use cone for directional effect
+      const trailGeometry = new THREE.ConeGeometry(size, size * 3, 8);
+      const trailMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFC107,
+        transparent: true,
+        opacity: 0.8 - (i * 0.03),
+        emissive: 0xFFC107,
+        emissiveIntensity: 0.5
+      });
+      
+      const trailMesh = new THREE.Mesh(trailGeometry, trailMaterial);
+      
+      // Position along the velocity vector
+      const distance = i * 0.4;
+      const position = new THREE.Vector3().copy(Game.ball.position).sub(
+        new THREE.Vector3().copy(ballDirection).multiplyScalar(distance)
+      );
+      
+      trailMesh.position.copy(position);
+      
+      // Rotate to face the direction of movement
+      trailMesh.lookAt(Game.ball.position);
+      trailMesh.rotateX(Math.PI / 2);
+      
+      this.gameScene.add(trailMesh);
+      trailSegments.push({
+        mesh: trailMesh,
+        life: 1.0
+      });
+    }
+    
+    // Create flash effect at ball position
+    const flashGeometry = new THREE.SphereGeometry(Constants.BALL_RADIUS * 2, 16, 16);
+    const flashMaterial = new THREE.MeshBasicMaterial({
+      color: 0xFFC107,
+      transparent: true,
+      opacity: 0.7
+    });
+    
+    const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+    flash.position.copy(Game.ball.position);
+    this.gameScene.add(flash);
+    
+    // Animate trail and flash
+    let elapsed = 0;
+    const duration = 1.2;
+    
+    const updateTrail = () => {
+      elapsed += 0.016;
+      
+      // Animate flash
+      flash.scale.multiplyScalar(0.95);
+      flash.material.opacity *= 0.93;
+      
+      // Fade out trail segments
+      for (let i = trailSegments.length - 1; i >= 0; i--) {
+        const segment = trailSegments[i];
+        segment.life -= 0.03;
+        
+        if (segment.life <= 0) {
+          this.gameScene.remove(segment.mesh);
+          trailSegments.splice(i, 1);
+        } else {
+          segment.mesh.material.opacity = segment.life * 0.8;
+          segment.mesh.scale.multiplyScalar(0.97);
+        }
+      }
+      
+      // Continue animation as long as needed
+      if (trailSegments.length > 0 || flash.material.opacity > 0.01) {
+        requestAnimationFrame(updateTrail);
+      } else {
+        // Clean up
+        this.gameScene.remove(flash);
+        trailSegments.forEach(segment => {
+          this.gameScene.remove(segment.mesh);
+        });
+      }
+    };
+    
+    requestAnimationFrame(updateTrail);
   },
   
   /**

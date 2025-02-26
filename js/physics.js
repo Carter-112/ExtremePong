@@ -44,7 +44,18 @@ const Physics = {
     // Check collision with top and bottom walls
     const fieldHalfHeight = Constants.FIELD_HEIGHT / 2 - Constants.BALL_RADIUS;
     if (Game.ball.position.y > fieldHalfHeight || Game.ball.position.y < -fieldHalfHeight) {
+      // Store previous position y to prevent continuous wall triggering
+      const prevY = Game.ball.position.y;
+      
+      // Reverse velocity
       Game.ball.userData.velocity.y *= -1;
+      
+      // Position correction to ensure ball is not stuck in the wall
+      if (Game.ball.position.y > fieldHalfHeight) {
+        Game.ball.position.y = fieldHalfHeight - 0.05;
+      } else if (Game.ball.position.y < -fieldHalfHeight) {
+        Game.ball.position.y = -fieldHalfHeight + 0.05;
+      }
       
       // Add randomness to bounce based on settings
       Game.ball.userData.velocity.y += (Math.random() - 0.5) * (Settings.settings.game.randomnessLevel / 50);
@@ -58,7 +69,7 @@ const Physics = {
       // Add visual effect for wall hit
       Utils.createImpactEffect(
         Game.ball.position.x, 
-        Game.ball.position.y > 0 ? fieldHalfHeight : -fieldHalfHeight, 
+        prevY > 0 ? fieldHalfHeight : -fieldHalfHeight, 
         Game.ball.position.z, 
         0x00ffff
       );
@@ -74,6 +85,86 @@ const Physics = {
       Game.ball.rotation.z -= Game.ball.userData.velocity.x * deltaTime * 0.2;
       Game.ball.rotation.x += Game.ball.userData.velocity.y * deltaTime * 0.2;
     }
+    
+    // Check for gravity well effects
+    PowerUps.gravityWells.forEach(well => {
+      if (Date.now() < well.expiresAt) {
+        const dx = well.mesh.position.x - Game.ball.position.x;
+        const dy = well.mesh.position.y - Game.ball.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < well.radius) {
+          const force = well.strength * (1 - distance / well.radius) * 0.2;
+          Game.ball.userData.velocity.x += (dx / distance) * force;
+          Game.ball.userData.velocity.y += (dy / distance) * force;
+        }
+      }
+    });
+    
+    // Check for obstacle collisions
+    PowerUps.obstacles.forEach(obstacle => {
+      if (Math.abs(Game.ball.position.x - obstacle.position.x) < obstacle.width/2 + Constants.BALL_RADIUS &&
+          Math.abs(Game.ball.position.y - obstacle.position.y) < obstacle.height/2 + Constants.BALL_RADIUS) {
+        
+        // Determine which side of the obstacle was hit
+        const dx = Game.ball.position.x - obstacle.position.x;
+        const dy = Game.ball.position.y - obstacle.position.y;
+        
+        if (Math.abs(dx) / (obstacle.width/2) > Math.abs(dy) / (obstacle.height/2)) {
+          // Horizontal collision (left/right)
+          Game.ball.userData.velocity.x *= -1;
+          
+          // Position correction
+          const penetration = (obstacle.width/2 + Constants.BALL_RADIUS) - Math.abs(dx);
+          Game.ball.position.x += (dx > 0 ? penetration : -penetration);
+        } else {
+          // Vertical collision (top/bottom)
+          Game.ball.userData.velocity.y *= -1;
+          
+          // Position correction
+          const penetration = (obstacle.height/2 + Constants.BALL_RADIUS) - Math.abs(dy);
+          Game.ball.position.y += (dy > 0 ? penetration : -penetration);
+        }
+        
+        // Add randomness to bounce
+        Game.ball.userData.velocity.x += (Math.random() - 0.5) * 0.5;
+        Game.ball.userData.velocity.y += (Math.random() - 0.5) * 0.5;
+        
+        // Play collision sound
+        Audio.playSoundWithVolume(Audio.sounds.wall);
+        
+        // Create impact visual effect
+        Utils.createImpactEffect(Game.ball.position.x, Game.ball.position.y, Game.ball.position.z, 0x795548);
+      }
+    });
+    
+    // Check for teleport portal interactions
+    PowerUps.teleportMarkers.forEach(teleport => {
+      const distanceToEntrance = Game.ball.position.distanceTo(teleport.entrancePosition);
+      if (distanceToEntrance < teleport.radius && 
+          Date.now() - teleport.lastTeleport > 1000) { // Prevent too frequent teleports
+        
+        // Teleport the ball
+        Game.ball.position.copy(teleport.exitPosition);
+        
+        // Slightly randomize exit velocity to prevent loops
+        const speed = Game.ball.userData.velocity.length();
+        const angle = Math.atan2(Game.ball.userData.velocity.y, Game.ball.userData.velocity.x);
+        const newAngle = angle + (Math.random() - 0.5) * Math.PI / 4;
+        
+        Game.ball.userData.velocity.x = Math.cos(newAngle) * speed;
+        Game.ball.userData.velocity.y = Math.sin(newAngle) * speed;
+        
+        // Add teleport visual effect
+        Utils.createTeleportEffect(teleport.entrancePosition, teleport.exitPosition);
+        
+        // Play teleport sound
+        Audio.playSoundWithVolume(Audio.sounds.teleport || Audio.sounds.powerUp);
+        
+        // Update last teleport time
+        teleport.lastTeleport = Date.now();
+      }
+    });
     
     // Check for paddle collisions
     this.checkPaddleCollisions();
@@ -126,8 +217,11 @@ const Physics = {
       Game.ball.userData.velocity.x = Math.abs(newSpeed * Math.cos(angle));
       Game.ball.userData.velocity.y = newSpeed * Math.sin(angle);
       
-      // Add slight z-velocity for 2.5D pop-out effect
-      Game.ball.userData.velocity.z = (Math.random() - 0.5) * 2;
+      // Apply super shot if active
+      const appliedSuperShot = PowerUps.applySuperShot(Game.leftPaddle);
+      
+      // Add slight z-velocity for 2.5D pop-out effect (more if super shot)
+      Game.ball.userData.velocity.z = (Math.random() - 0.5) * (appliedSuperShot ? 4 : 2);
       
       // Play paddle collision sound
       Audio.playSoundWithVolume(Audio.sounds.paddle);
@@ -137,7 +231,7 @@ const Physics = {
         Game.leftPaddle.position.x + Constants.PADDLE_WIDTH / 2, 
         Game.ball.position.y, 
         0, 
-        0x00fcff
+        appliedSuperShot ? 0xFFC107 : 0x00fcff
       );
       
       // Trigger paddle hit animation for 2.5D effect
@@ -173,8 +267,11 @@ const Physics = {
       Game.ball.userData.velocity.x = -Math.abs(newSpeed * Math.cos(angle));
       Game.ball.userData.velocity.y = newSpeed * Math.sin(angle);
       
-      // Add slight z-velocity for 2.5D pop-out effect
-      Game.ball.userData.velocity.z = (Math.random() - 0.5) * 2;
+      // Apply super shot if active
+      const appliedSuperShot = PowerUps.applySuperShot(Game.rightPaddle);
+      
+      // Add slight z-velocity for 2.5D pop-out effect (more if super shot)
+      Game.ball.userData.velocity.z = (Math.random() - 0.5) * (appliedSuperShot ? 4 : 2);
       
       // Play paddle collision sound
       Audio.playSoundWithVolume(Audio.sounds.paddle);
@@ -184,7 +281,7 @@ const Physics = {
         Game.rightPaddle.position.x - Constants.PADDLE_WIDTH / 2, 
         Game.ball.position.y, 
         0, 
-        0xff00ff
+        appliedSuperShot ? 0xFFC107 : 0xff00ff
       );
       
       // Trigger paddle hit animation for 2.5D effect
