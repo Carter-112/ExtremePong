@@ -28,15 +28,26 @@ const Physics = {
       // Play score sound
       Audio.playSoundWithVolume(Audio.sounds.score);
       
-      // Set game state to gameOver (special state for resetting after scoring)
-      Game.gameState = 'gameOver';
-      Game.gameOverTime = Date.now();
+      // CRITICAL: Bounce the ball back instead of resetting
+      // This allows animation to continue without interruption
+      Game.ball.userData.velocity.x = -Game.ball.userData.velocity.x;
+      Game.ball.position.x = -Constants.FIELD_WIDTH / 2 + Constants.BALL_RADIUS;
       
-      // CRITICAL: Force ball to center and stop
-      Game.ball.position.set(0, 0, 0);
-      Game.ball.userData.velocity.set(0, 0, 0);
+      // Display message instead of stopping animation
+      UI.showGameMessage("SCORE!", Game.rightPaddle.userData.score + " - " + Game.leftPaddle.userData.score);
       
-      return; // Skip the rest of the update
+      // Hide message after a delay
+      setTimeout(() => {
+        UI.hideGameMessage();
+      }, 1000);
+      
+      // Add some randomness to the bounce
+      const angle = (Math.random() - 0.5) * Math.PI / 4;
+      const newVelX = Game.ball.userData.velocity.x;
+      const newVelY = Math.sin(angle) * Math.abs(newVelX) * 0.75;
+      Game.ball.userData.velocity.y = newVelY;
+      
+      // Do NOT return - continue with animation
     }
     
     // Check boundaries - RIGHT SIDE
@@ -51,15 +62,26 @@ const Physics = {
       // Play score sound
       Audio.playSoundWithVolume(Audio.sounds.score);
       
-      // Set game state to gameOver (special state for resetting after scoring)
-      Game.gameState = 'gameOver';
-      Game.gameOverTime = Date.now();
+      // CRITICAL: Bounce the ball back instead of resetting
+      // This allows animation to continue without interruption
+      Game.ball.userData.velocity.x = -Game.ball.userData.velocity.x;
+      Game.ball.position.x = Constants.FIELD_WIDTH / 2 - Constants.BALL_RADIUS;
       
-      // CRITICAL: Force ball to center and stop
-      Game.ball.position.set(0, 0, 0);
-      Game.ball.userData.velocity.set(0, 0, 0);
+      // Display message instead of stopping animation
+      UI.showGameMessage("SCORE!", Game.leftPaddle.userData.score + " - " + Game.rightPaddle.userData.score);
       
-      return; // Skip the rest of the update
+      // Hide message after a delay
+      setTimeout(() => {
+        UI.hideGameMessage();
+      }, 1000);
+      
+      // Add some randomness to the bounce
+      const angle = (Math.random() - 0.5) * Math.PI / 4;
+      const newVelX = Game.ball.userData.velocity.x;
+      const newVelY = Math.sin(angle) * Math.abs(newVelX) * 0.75;
+      Game.ball.userData.velocity.y = newVelY;
+      
+      // Do NOT return - continue with animation
     }
     
     // SAFE TO UPDATE: Only if ball is staying within bounds

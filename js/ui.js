@@ -762,15 +762,47 @@ const UI = {
     if (!messageEl) {
       messageEl = document.createElement('div');
       messageEl.className = 'game-message';
+      messageEl.style.position = 'absolute';
+      messageEl.style.top = '30%';
+      messageEl.style.left = '50%';
+      messageEl.style.transform = 'translate(-50%, -50%)';
+      messageEl.style.color = '#00FFFF';
+      messageEl.style.textShadow = '0 0 10px rgba(0, 255, 255, 0.8)';
+      messageEl.style.fontSize = '36px';
+      messageEl.style.fontWeight = 'bold';
+      messageEl.style.textAlign = 'center';
+      messageEl.style.zIndex = '100';
+      messageEl.style.pointerEvents = 'none';
+      messageEl.style.transition = 'all 0.3s ease-in-out';
       document.getElementById('ui-container').appendChild(messageEl);
     }
     
+    // Add animation class
     messageEl.innerHTML = `
-      <h2>${title}</h2>
-      <p>${message}</p>
+      <h2 style="animation: pulse 0.5s infinite alternate; margin: 0; font-size: 48px;">${title}</h2>
+      <p style="margin: 10px 0 0 0; font-size: 36px;">${message}</p>
     `;
     
+    // Add style for animation if it doesn't exist
+    if (!document.getElementById('game-message-style')) {
+      const style = document.createElement('style');
+      style.id = 'game-message-style';
+      style.textContent = `
+        @keyframes pulse {
+          from { transform: scale(1); opacity: 0.8; }
+          to { transform: scale(1.1); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
     messageEl.style.display = 'block';
+    
+    // Scale up on show
+    messageEl.style.transform = 'translate(-50%, -50%) scale(1.2)';
+    setTimeout(() => {
+      messageEl.style.transform = 'translate(-50%, -50%) scale(1)';
+    }, 50);
   },
   
   /**

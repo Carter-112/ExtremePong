@@ -143,9 +143,6 @@ function animate(currentTime = 0) {
 
   // Update the game state - TRY/CATCH each section for maximum robustness
   try {
-    // ANIMATION DEBUG: Log the current game state on each frame
-    console.log("ANIMATION FRAME - Current game state:", Game.gameState);
-    
     // ALWAYS update animations no matter what the game state is
     // This is critical to ensure animations never freeze
     Renderer.updatePopOutEffects(deltaTime);
@@ -170,25 +167,7 @@ function animate(currentTime = 0) {
         // Additional game over animations if needed
         break;
         
-      case 'gameOver':
-        console.log("ANIMATION DEBUG: In gameOver state, time passed:", Date.now() - Game.gameOverTime);
-        
-        // Force a short timeout
-        if (Date.now() - Game.gameOverTime >= 800) {
-          console.log("ANIMATION DEBUG: Resuming play after gameOver");
-          Game.gameState = 'playing';
-          
-          // Reset ball position and velocity directly
-          Game.ball.position.set(0, 0, 0);
-          Game.ball.userData.velocity.set(0, 0, 0);
-          
-          // Give ball a new direction immediately
-          const angle = (Math.random() - 0.5) * Math.PI / 2;
-          const direction = Math.random() < 0.5 ? 1 : -1;
-          Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-          Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-        }
-        break;
+      // We no longer use gameOver state - removed completely
     }
   } catch (e) {
     console.error("ERROR in game state update:", e);

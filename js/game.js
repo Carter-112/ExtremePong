@@ -405,15 +405,8 @@ const Game = {
       return;
     }
     
-    // We no longer need this emergency reset - it's handled properly in physics.js
-    
-    // Do nothing in gameOver state - to let the animation continue in main.js
-    if (this.gameState === 'gameOver') {
-      // Just keep ball centered and still
-      this.ball.position.set(0, 0, 0);
-      this.ball.userData.velocity.set(0, 0, 0);
-      return;
-    }
+    // We removed the gameOver state entirely - ball now just bounces instead of stopping
+    // This ensures animations keep running
     
     if (this.gameState !== 'playing') return;
     
