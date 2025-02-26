@@ -1539,6 +1539,10 @@
       ball.x = gameCanvas.width / 2;
       ball.y = gameCanvas.height / 2;
       
+      // CRITICAL: Reset rally counter immediately with the ball position reset
+      // This ensures it happens before any other code
+      resetRallyCounter();
+      
       // Get current ball speed (or use default if no previous speed)
       const originalDx = ball.dx;
       const originalDy = ball.dy;
@@ -1944,9 +1948,8 @@
       // Ball out of bounds - scoring
       // Use return value from checkScoring to prevent double-updates
       if (checkScoring()) {
-        // Force rally counter to zero and update display again
-        consecutiveHits = 0;
-        updateRallyCounter();
+        // Rally counter is now reset immediately in resetBall()
+        // Don't need to reset it here anymore
         return; // Skip the rest of update logic if scoring happened
       }
       
@@ -2291,13 +2294,14 @@
           }
         } else {
           // Use the improved resetBall function which handles animations
+          // resetBall already calls resetRallyCounter() at the start
           resetBall();
         }
         
         updateScoreDisplay();
         
-        // Reset and hide rally counter
-        resetRallyCounter();
+        // Rally counter is already reset in resetBall(), this is just for redundancy
+        // resetRallyCounter();
         
         // Return true to indicate scoring happened
         return true;
@@ -2334,13 +2338,14 @@
           }
         } else {
           // Use the improved resetBall function which handles animations
+          // resetBall already calls resetRallyCounter() at the start
           resetBall();
         }
         
         updateScoreDisplay();
         
-        // Reset and hide rally counter
-        resetRallyCounter();
+        // Rally counter is already reset in resetBall(), this is just for redundancy
+        // resetRallyCounter();
         
         // Return true to indicate scoring happened
         return true;
