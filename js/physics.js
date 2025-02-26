@@ -11,20 +11,13 @@ const Physics = {
    * @param {number} deltaTime - Time since last frame
    */
   updateBall: function(deltaTime) {
-    // Simple boundary check
-    const leftBoundary = -Constants.FIELD_WIDTH / 2;
-    const rightBoundary = Constants.FIELD_WIDTH / 2;
-    
     // First - update the ball position
     Game.ball.position.x += Game.ball.userData.velocity.x * deltaTime * Settings.settings.game.gameSpeed;
     Game.ball.position.y += Game.ball.userData.velocity.y * deltaTime * Settings.settings.game.gameSpeed;
     
-    // Check if ball is at scoring boundaries
-    if (Game.ball.position.x <= leftBoundary || Game.ball.position.x >= rightBoundary) {
-      // Call scoring function
-      this.checkScoring();
-      return;
-    }
+    // NOTE: Scoring is now handled directly in the animation loop
+    // This is to prevent any possible race conditions or freezing issues
+    // See the main.js file for the direct boundary detection and scoring logic
     
     // For 2.5D effect: move ball in z axis with damping
     if (Game.ball.userData.velocity.z) {
@@ -350,77 +343,14 @@ const Physics = {
   },
   
   /**
-   * Check for scoring
+   * Check for scoring - IMPORTANT: This is no longer used
+   * Scoring is now handled directly in the animation loop in main.js
+   * This is kept here for reference only
    */
   checkScoring: function() {
-    const leftBoundary = -Constants.FIELD_WIDTH / 2;
-    const rightBoundary = Constants.FIELD_WIDTH / 2;
-    
-    // LEFT SCORING
-    if (Game.ball.position.x <= leftBoundary) {
-      // Immediately clear velocity
-      Game.ball.userData.velocity.x = 0;
-      Game.ball.userData.velocity.y = 0;
-      Game.ball.userData.velocity.z = 0;
-      
-      // Pull away from boundary
-      Game.ball.position.x = 0;
-      
-      // Score point for right player
-      Game.rightPaddle.userData.score++;
-      UI.updateScoreDisplay();
-      
-      // Play score sound
-      Audio.playSoundWithVolume(Audio.sounds.score);
-      
-      // Show score effect
-      Utils.createScoreEffect(Game.rightPaddle.userData.score, 'right');
-      
-      // Check for game end
-      if (Game.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
-        Game.endGame('right');
-      } else {
-        // Reset ball with a delay
-        setTimeout(() => {
-          Game.resetBall();
-        }, 500);
-      }
-      
-      return;
-    }
-    
-    // RIGHT SCORING
-    if (Game.ball.position.x >= rightBoundary) {
-      // Immediately clear velocity
-      Game.ball.userData.velocity.x = 0;
-      Game.ball.userData.velocity.y = 0;
-      Game.ball.userData.velocity.z = 0;
-      
-      // Pull away from boundary
-      Game.ball.position.x = 0;
-      
-      // Score point for left player
-      Game.leftPaddle.userData.score++;
-      UI.updateScoreDisplay();
-      
-      // Play score sound
-      Audio.playSoundWithVolume(Audio.sounds.score);
-      
-      // Show score effect
-      Utils.createScoreEffect(Game.leftPaddle.userData.score, 'left');
-      
-      // Check for game end
-      if (Game.leftPaddle.userData.score >= Settings.settings.game.maxPoints) {
-        Game.endGame('left');
-      } else {
-        // Reset ball with a delay
-        setTimeout(() => {
-          Game.resetBall();
-        }, 500);
-      }
-      
-      return;
-    }
+    // DEPRECATED: Scoring is now handled directly in the animation loop
+    console.log("WARNING: checkScoring is deprecated, scoring is now handled in animation loop");
+    return;
   },
   
   /**

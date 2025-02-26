@@ -37,10 +37,56 @@ const Input = {
   }
 };
 
+// DRASTIC FIX: Quick scoring and reset function to bypass all game mechanics
+function quickScore(side) {
+  // Score
+  if (side === 'left') {
+    console.log("BYPASS: Left player scores");
+    Game.leftPaddle.userData.score++;
+    // Show score effect
+    Utils.createScoreEffect(Game.leftPaddle.userData.score, 'left');
+  } else {
+    console.log("BYPASS: Right player scores");
+    Game.rightPaddle.userData.score++;
+    // Show score effect
+    Utils.createScoreEffect(Game.rightPaddle.userData.score, 'right');
+  }
+  
+  // Update display
+  UI.updateScoreDisplay();
+  
+  // Play score sound
+  Audio.playSoundWithVolume(Audio.sounds.score);
+  
+  // Check for game end
+  if (Game.leftPaddle.userData.score >= Settings.settings.game.maxPoints) {
+    Game.endGame('left');
+    return;
+  } else if (Game.rightPaddle.userData.score >= Settings.settings.game.maxPoints) {
+    Game.endGame('right');
+    return;
+  }
+  
+  // Complete ball reset - force to center
+  Game.ball.position.set(0, 0, 0);
+  Game.ball.userData.velocity.x = 0;
+  Game.ball.userData.velocity.y = 0;
+  Game.ball.userData.velocity.z = 0;
+  
+  // Wait before starting ball again
+  setTimeout(() => {
+    const angle = (Math.random() - 0.5) * Math.PI / 2;
+    const direction = Math.random() < 0.5 ? 1 : -1;
+    Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
+    Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
+  }, 500);
+}
+
 // Animation loop
 let lastTime = 0;
 let loopId = null;
 let lastBallPosX = 0;
+let lastBallPosY = 0;
 let stuckFrames = 0;
 
 function animate(currentTime = 0) {
@@ -53,51 +99,28 @@ function animate(currentTime = 0) {
   // Skip if delta time is too large (tab was inactive)
   if (deltaTime > 0.1) return;
   
-  // SUPER CRITICAL STUCK BALL DETECTION
+  // DIRECT BOUNDARY DETECTION - much simpler approach 
   if (Game.ball) {
-    // Detect if ball is stuck at boundaries
-    if (Math.abs(Game.ball.position.x) >= Constants.FIELD_WIDTH / 2 - 1) {
-      // Check if the x position hasn't changed
-      if (Math.abs(Game.ball.position.x - lastBallPosX) < 0.001) {
-        stuckFrames++;
-        
-        // After 5 frames of being stuck, force fix
-        if (stuckFrames > 5) {
-          console.log("CRITICAL: Ball detected stuck at boundary:", Game.ball.position.x);
-          
-          // Update score
-          if (Game.ball.position.x < 0) {
-            // Right player scores
-            Game.rightPaddle.userData.score++;
-          } else {
-            // Left player scores
-            Game.leftPaddle.userData.score++;
-          }
-          
-          // Update UI
-          UI.updateScoreDisplay();
-          
-          // Completely reset the ball and game state
-          Game.ball.position.set(0, 0, 0);
-          Game.ball.userData.velocity.x = 0;
-          Game.ball.userData.velocity.y = 0;
-          Game.ball.userData.velocity.z = 0;
-          Game.gameState = 'playing';
-          
-          // Wait before giving the ball velocity
-          setTimeout(() => {
-            // Only set if still in playing state
-            if (Game.gameState === 'playing') {
-              const angle = (Math.random() - 0.5) * Math.PI / 2;
-              const direction = Math.random() < 0.5 ? 1 : -1;
-              Game.ball.userData.velocity.x = Math.cos(angle) * Settings.settings.game.baseBallSpeed * direction;
-              Game.ball.userData.velocity.y = Math.sin(angle) * Settings.settings.game.baseBallSpeed / 2;
-            }
-          }, 500);
-          
-          stuckFrames = 0;
-        }
-      } else {
+    // DIRECTLY detect boundary crossing for immediate scoring
+    if (Game.ball.position.x <= -Constants.FIELD_WIDTH / 2) {
+      quickScore('right');
+      return;
+    }
+    
+    if (Game.ball.position.x >= Constants.FIELD_WIDTH / 2) {
+      quickScore('left');
+      return;
+    }
+    
+    // Detect stuck ball (anywhere, not just boundaries)
+    if (Math.abs(Game.ball.position.x - lastBallPosX) < 0.001 &&
+        Math.abs(Game.ball.position.y - lastBallPosY) < 0.001) {
+      stuckFrames++;
+      if (stuckFrames > 60) { // Stuck for ~1 second
+        console.log("EMERGENCY: Ball completely stuck, forcing reset");
+        Game.ball.position.set(0, 0, 0);
+        Game.ball.userData.velocity.x = Math.cos(Math.PI/4) * Settings.settings.game.baseBallSpeed;
+        Game.ball.userData.velocity.y = Math.sin(Math.PI/4) * Settings.settings.game.baseBallSpeed;
         stuckFrames = 0;
       }
     } else {
@@ -106,6 +129,7 @@ function animate(currentTime = 0) {
     
     // Store current position for next frame comparison
     lastBallPosX = Game.ball.position.x;
+    lastBallPosY = Game.ball.position.y;
   }
 
   // Update the game state
