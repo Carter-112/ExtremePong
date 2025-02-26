@@ -34,9 +34,6 @@ const Game = {
     // Make sure the game container is visible
     document.querySelector('.game-container').style.display = 'block';
     
-    // Reset game state
-    this.resetGame();
-    
     // Start the game
     this.gameState = 'playing';
     console.log('Game state changed to:', this.gameState);
@@ -62,11 +59,6 @@ const Game = {
       this.setupMobileControls();
     }
     
-    // Connect to multiplayer server if multiplayer mode
-    if (Multiplayer.isMultiplayer) {
-      Multiplayer.connectToMultiplayerServer();
-    }
-    
     // Update player names in score display
     const leftScoreEl = document.querySelector('.player-score.left');
     const rightScoreEl = document.querySelector('.player-score.right');
@@ -82,6 +74,8 @@ const Game = {
         rightScoreEl.setAttribute('data-name', 'Player 2');
       } else if (this.currentGameMode === 'human-vs-human') {
         rightScoreEl.setAttribute('data-name', 'Player 2');
+      } else if (this.currentGameMode === 'multiplayer' && !Multiplayer.currentMatch) {
+        rightScoreEl.setAttribute('data-name', 'Waiting...');
       }
     }
   },

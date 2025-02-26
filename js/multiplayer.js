@@ -46,6 +46,17 @@ const Multiplayer = {
     // Set game mode to multiplayer
     Game.setGameMode('multiplayer');
     
+    // Clear any active countdown timers
+    if (window.countdownTimer) {
+      clearTimeout(window.countdownTimer);
+    }
+    
+    // Hide any existing game messages
+    UI.hideGameMessage();
+    
+    // Show a searching message
+    UI.showGameMessage('MATCHMAKING', 'Searching for opponents...');
+    
     // Start connection to multiplayer server
     this.connectToMultiplayerServer('random');
   },
@@ -69,8 +80,25 @@ const Multiplayer = {
     // Set game mode to multiplayer
     Game.setGameMode('multiplayer');
     
+    // Clear any active countdown timers
+    if (window.countdownTimer) {
+      clearTimeout(window.countdownTimer);
+    }
+    
     // Show waiting notification
     Utils.showNotification('Waiting', 'Waiting for opponent to join...', 'info');
+    
+    // Hide any existing game messages
+    UI.hideGameMessage();
+    
+    // Show a waiting message
+    UI.showGameMessage('HOSTING GAME', `Your game code is: ${gameCode}\nWaiting for opponent to join...`);
+    
+    // Update room code display if it exists
+    const roomCodeDisplay = document.getElementById('room-code');
+    if (roomCodeDisplay) {
+      roomCodeDisplay.textContent = gameCode;
+    }
     
     // Connect to server with game code
     this.connectToMultiplayerServer('host', gameCode);
@@ -87,14 +115,35 @@ const Multiplayer = {
       return;
     }
     
-    // Prompt for game code
-    const code = prompt('Enter the 6-digit game code:');
+    // Get code from the join code input if available
+    let code = null;
+    const joinCodeInput = document.getElementById('join-code');
+    if (joinCodeInput) {
+      code = joinCodeInput.value.trim();
+    } else {
+      // Fallback to prompt if the input doesn't exist
+      code = prompt('Enter the 6-digit game code:');
+    }
     
     if (code && code.length === 6) {
       Utils.showNotification('Joining Game', `Joining game with code: ${code}...`, 'info');
       
       // Set game mode to multiplayer
       Game.setGameMode('multiplayer');
+      
+      // Clear any active countdown timers
+      if (window.countdownTimer) {
+        clearTimeout(window.countdownTimer);
+      }
+      
+      // Hide waiting message
+      const waitingMessage = document.querySelector('.waiting-message');
+      if (waitingMessage) {
+        waitingMessage.style.display = 'none';
+      }
+      
+      // Show a searching message
+      UI.showGameMessage('CONNECTING', 'Joining game with code: ' + code);
       
       // Start connection
       this.connectToMultiplayerServer('join', code);
@@ -111,6 +160,11 @@ const Multiplayer = {
   connectToMultiplayerServer: function(mode = 'random', gameCode = null) {
     // Show connecting notification
     Utils.showNotification('Connecting', 'Connecting to multiplayer server...', 'info');
+    
+    // If we're already in simulation mode, we should disconnect first
+    if (this.isMultiplayer && !this.socket) {
+      this.disconnect();
+    }
     
     try {
       // Initialize actual socket connection
@@ -221,6 +275,18 @@ const Multiplayer = {
    */
   fallbackToSimulation: function(mode, gameCode) {
     console.log('Falling back to simulation mode');
+    
+    // Make sure we're not already in multiplayer mode
+    if (this.isMultiplayer && Game.gameState === 'playing') {
+      this.disconnect();
+    }
+    
+    // Display searching message in UI if appropriate
+    const waitingMessage = document.querySelector('.waiting-message');
+    if (waitingMessage) {
+      waitingMessage.style.display = 'block';
+    }
+    
     // Simulate server connection with setTimeout
     setTimeout(() => {
       this.isMultiplayer = true;
@@ -240,8 +306,19 @@ const Multiplayer = {
         // Simulate waiting for opponent
         Utils.showNotification('Matchmaking', 'Looking for an opponent...', 'info');
         
+        // Hide matchmaking panel to prevent duplicate actions
+        UI.hidePanel('multiplayerPanel');
+        
+        // Don't start game immediately - wait for opponent
+        document.getElementById('status-message').textContent = 'Looking for opponent...';
+        
         // Simulate finding an opponent after a short delay
         setTimeout(() => {
+          // Hide waiting message
+          if (waitingMessage) {
+            waitingMessage.style.display = 'none';
+          }
+          
           // Generate fake opponent data for demonstration
           const opponentData = {
             name: `Player${Math.floor(Math.random() * 1000)}`,
@@ -249,15 +326,32 @@ const Multiplayer = {
             avatar: ['cyan', 'magenta', 'yellow', 'green', 'red', 'blue'][Math.floor(Math.random() * 6)]
           };
           
-          // Set up the match
-          this.setupMatch(playerData, opponentData);
-        }, 2000);
+          // Show countdown
+          UI.showGameMessage('OPPONENT FOUND!', 'Game starting in 3...');
+          setTimeout(() => UI.showGameMessage('OPPONENT FOUND!', 'Game starting in 2...'), 1000);
+          setTimeout(() => UI.showGameMessage('OPPONENT FOUND!', 'Game starting in 1...'), 2000);
+          setTimeout(() => {
+            UI.hideGameMessage();
+            
+            // Set up the match and start game
+            this.setupMatch(playerData, opponentData);
+          }, 3000);
+        }, 5000);
       } else if (mode === 'host') {
         // Simulate hosting a game
         Utils.showNotification('Hosting Game', `Game code: ${gameCode}. Waiting for opponent...`, 'info');
         
+        // Hide matchmaking panel and set status
+        UI.hidePanel('multiplayerPanel');
+        document.getElementById('status-message').textContent = 'Waiting for opponent to join...';
+        
         // Simulate waiting for an opponent to join
         setTimeout(() => {
+          // Hide waiting message
+          if (waitingMessage) {
+            waitingMessage.style.display = 'none';
+          }
+          
           // Generate fake opponent data for demonstration
           const opponentData = {
             name: `Friend${Math.floor(Math.random() * 1000)}`,
@@ -267,15 +361,39 @@ const Multiplayer = {
           
           Utils.showNotification('Player Joined', `${opponentData.name} has joined your game!`, 'success');
           
-          // Set up the match
-          this.setupMatch(playerData, opponentData);
-        }, 5000);
+          // Show countdown
+          UI.showGameMessage('PLAYER JOINED!', 'Game starting in 3...');
+          setTimeout(() => UI.showGameMessage('PLAYER JOINED!', 'Game starting in 2...'), 1000);
+          setTimeout(() => UI.showGameMessage('PLAYER JOINED!', 'Game starting in 1...'), 2000);
+          setTimeout(() => {
+            UI.hideGameMessage();
+            
+            // Set up the match
+            this.setupMatch(playerData, opponentData);
+          }, 3000);
+        }, 6000);
       } else if (mode === 'join') {
         // Simulate joining a game
         Utils.showNotification('Joining Game', `Joining game with code: ${gameCode}...`, 'info');
         
+        // Hide matchmaking panel
+        UI.hidePanel('multiplayerPanel');
+        document.getElementById('status-message').textContent = 'Joining game...';
+        
         // Simulate connection process
         setTimeout(() => {
+          // Hide waiting message
+          if (waitingMessage) {
+            waitingMessage.style.display = 'none';
+          }
+          
+          // Check if code is valid - if not, show error and return to matchmaking
+          if (!gameCode || gameCode.length !== 6) {
+            Utils.showNotification('Invalid Code', 'Please enter a valid 6-digit code.', 'error');
+            UI.showPanel('multiplayerPanel');
+            return;
+          }
+          
           // Generate fake host data for demonstration
           const hostData = {
             name: `Host${Math.floor(Math.random() * 1000)}`,
@@ -285,9 +403,17 @@ const Multiplayer = {
           
           Utils.showNotification('Game Found', `Joined ${hostData.name}'s game!`, 'success');
           
-          // Set up the match
-          this.setupMatch(playerData, hostData);
-        }, 3000);
+          // Show countdown
+          UI.showGameMessage('GAME FOUND!', 'Game starting in 3...');
+          setTimeout(() => UI.showGameMessage('GAME FOUND!', 'Game starting in 2...'), 1000);
+          setTimeout(() => UI.showGameMessage('GAME FOUND!', 'Game starting in 1...'), 2000);
+          setTimeout(() => {
+            UI.hideGameMessage();
+            
+            // Set up the match
+            this.setupMatch(playerData, hostData);
+          }, 3000);
+        }, 4000);
       }
     }, 1500);
   },
@@ -309,15 +435,47 @@ const Multiplayer = {
     // Start the game
     Utils.showNotification('Game Starting', `Playing against ${remotePlayer.name}!`, 'success');
     
-    // Hide multiplayer panel
+    // Hide matchmaking status elements
     UI.hidePanel('multiplayerPanel');
+    
+    // Hide any waiting messages
+    const waitingMessage = document.querySelector('.waiting-message');
+    if (waitingMessage) {
+      waitingMessage.style.display = 'none';
+    }
+    
+    // Reset the game before starting
+    Game.resetGame();
+    
+    // Make sure the game knows we're in multiplayer mode
+    Game.setGameMode('multiplayer');
+    
+    // Set up the game for multiplayer
+    if (Game.leftPaddle) {
+      Game.leftPaddle.userData.isAI = false; // Local player controls left paddle
+    }
+    if (Game.rightPaddle) {
+      Game.rightPaddle.userData.isAI = false; // Remote player controls right paddle 
+    }
     
     // Start the game
     Game.startGame();
     
-    // Set opponent name in UI
-    document.querySelector('.player-score.right').setAttribute('data-name', remotePlayer.name);
-    document.querySelector('.player-score.left').setAttribute('data-name', localPlayer.name);
+    // Set player names in UI
+    try {
+      const leftScoreEl = document.querySelector('.player-score.left');
+      const rightScoreEl = document.querySelector('.player-score.right');
+      
+      if (leftScoreEl) {
+        leftScoreEl.setAttribute('data-name', localPlayer.name);
+      }
+      
+      if (rightScoreEl) {
+        rightScoreEl.setAttribute('data-name', remotePlayer.name);
+      }
+    } catch (error) {
+      console.error('Error setting player names in UI:', error);
+    }
   },
   
   /**

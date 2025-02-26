@@ -752,6 +752,38 @@ const UI = {
   },
   
   /**
+   * Show a game message in the center of the screen
+   * @param {string} title - The message title
+   * @param {string} message - The message text
+   */
+  showGameMessage: function(title, message) {
+    let messageEl = document.querySelector('.game-message');
+    
+    if (!messageEl) {
+      messageEl = document.createElement('div');
+      messageEl.className = 'game-message';
+      document.getElementById('ui-container').appendChild(messageEl);
+    }
+    
+    messageEl.innerHTML = `
+      <h2>${title}</h2>
+      <p>${message}</p>
+    `;
+    
+    messageEl.style.display = 'block';
+  },
+  
+  /**
+   * Hide the game message
+   */
+  hideGameMessage: function() {
+    const messageEl = document.querySelector('.game-message');
+    if (messageEl) {
+      messageEl.style.display = 'none';
+    }
+  },
+  
+  /**
    * Shows a game over panel
    * @param {string} winner - Which side won ('left' or 'right')
    */
