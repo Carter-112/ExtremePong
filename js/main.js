@@ -307,6 +307,17 @@ function addInteractionListeners() {
     console.error('Could not find Play Game button');
   }
   
+  // Add event listener for the Account button
+  const accountButton = document.getElementById('account-button');
+  if (accountButton) {
+    accountButton.addEventListener('click', function() {
+      console.log('Account button clicked');
+      UI.showPanel('accountPanel');
+    });
+  } else {
+    console.error('Could not find Account button');
+  }
+  
   // Make store items interactive
   document.querySelectorAll('.store-item').forEach(item => {
     item.addEventListener('mouseenter', function() {
