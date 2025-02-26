@@ -384,6 +384,7 @@
       flex-direction: column;
       gap: 5px;
       max-width: 150px;
+      margin-top: 40px; /* Move power-ups down from the corner */
     }
     
     .power-up-item {
@@ -393,28 +394,96 @@
       display: flex;
       align-items: center;
       font-size: 14px;
+      box-shadow: 0 0 8px rgba(0, 252, 255, 0.5);
+      backdrop-filter: blur(2px);
     }
     
     .power-up-icon {
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       margin-right: 5px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 14px;
+      box-shadow: 0 0 5px currentColor;
     }
     
+    /* Enhanced animated rally counter */
     .rally-counter {
       position: absolute;
-      top: 10px;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
-      font-size: 18px;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      font-weight: bold;
       color: var(--tertiary);
-      text-shadow: 0 0 5px var(--tertiary);
+      text-shadow: 0 0 10px var(--tertiary);
       pointer-events: none;
+      text-align: center;
+      transition: all 0.2s ease-out;
+      opacity: 0.85;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: rgba(0, 0, 20, 0.3);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+    }
+    
+    .rally-count {
+      font-size: 32px;
+      margin-top: 5px;
+      font-family: 'Russo One', sans-serif;
+      display: block;
+    }
+    
+    /* Rally counter animations */
+    @keyframes rallyPulse {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.1); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+    
+    @keyframes rallyShake {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      25% { transform: translate(-50%, -50%) rotate(-2deg); }
+      75% { transform: translate(-50%, -50%) rotate(2deg); }
+      100% { transform: translate(-50%, -50%) rotate(0deg); }
+    }
+    
+    @keyframes rallyGlow {
+      0% { text-shadow: 0 0 10px var(--tertiary); }
+      50% { text-shadow: 0 0 25px var(--tertiary), 0 0 40px var(--tertiary); }
+      100% { text-shadow: 0 0 10px var(--tertiary); }
+    }
+    
+    /* Classes for different rally levels */
+    .rally-level-1 {
+      color: #ffff00;
+    }
+    
+    .rally-level-2 {
+      color: #ffcc00;
+      animation: rallyPulse 1s infinite;
+    }
+    
+    .rally-level-3 {
+      color: #ff9900;
+      animation: rallyPulse 0.8s infinite, rallyGlow 1.5s infinite;
+    }
+    
+    .rally-level-4 {
+      color: #ff6600;
+      animation: rallyShake 0.5s infinite, rallyGlow 0.8s infinite;
+      font-size: 28px;
+    }
+    
+    .rally-level-5 {
+      color: #ff3300;
+      animation: rallyShake 0.3s infinite, rallyGlow 0.5s infinite;
+      font-size: 32px;
+      text-shadow: 0 0 20px #ff3300, 0 0 40px #ff3300;
     }
     
     @keyframes slideIn {
@@ -1418,15 +1487,121 @@
       document.getElementById('right-score').textContent = rightPaddle.score;
     }
     
-    // Update rally counter
+    // Update rally counter with animated effects
     function updateRallyCounter() {
       const counter = document.getElementById('rally-counter');
+      
       if (consecutiveHits >= 3) {
-        counter.textContent = `Rally: ${consecutiveHits}`;
+        // Clear previous content
+        counter.innerHTML = '';
+        
+        // Create text elements
+        const rallyText = document.createElement('div');
+        rallyText.textContent = 'RALLY';
+        
+        const countText = document.createElement('div');
+        countText.textContent = consecutiveHits;
+        countText.className = 'rally-count';
+        
+        // Add to counter
+        counter.appendChild(rallyText);
+        counter.appendChild(countText);
+        
+        // Show counter
         counter.style.display = 'block';
+        
+        // Remove any existing classes
+        counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
+        
+        // Add appropriate class based on rally length
+        if (consecutiveHits >= 20) {
+          counter.classList.add('rally-level-5');
+          
+          // Add extra effects for epic rallies
+          if (!counter.dataset.epicEffectsAdded) {
+            // Create particle burst
+            createEpicRallyEffect();
+            // Add sound effect
+            try {
+              const epicSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2039/2039-preview.mp3');
+              epicSound.volume = 0.4;
+              epicSound.play().catch(e => console.warn('Could not play epic rally sound', e));
+            } catch (e) {
+              console.warn('Could not play epic rally sound', e);
+            }
+            counter.dataset.epicEffectsAdded = 'true';
+          }
+        } else if (consecutiveHits >= 15) {
+          counter.classList.add('rally-level-4');
+          // Reset epic effects flag
+          delete counter.dataset.epicEffectsAdded;
+        } else if (consecutiveHits >= 10) {
+          counter.classList.add('rally-level-3');
+        } else if (consecutiveHits >= 6) {
+          counter.classList.add('rally-level-2');
+        } else {
+          counter.classList.add('rally-level-1');
+        }
+        
+        // Get ball speed for additional effects
+        const ballSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+        
+        // Add speed-based scaling
+        const speedScale = 1 + (ballSpeed - 5) * 0.02; // Base scale + speed factor
+        counter.style.transform = `translate(-50%, -50%) scale(${speedScale})`;
+        
+        // Change opacity based on rally length
+        counter.style.opacity = Math.min(0.3 + (consecutiveHits * 0.03), 0.9);
       } else {
+        // Hide counter for small rallies
         counter.style.display = 'none';
       }
+    }
+    
+    // Create epic visual effect for long rallies
+    function createEpicRallyEffect() {
+      // Create a burst of particles from the center
+      const centerX = gameCanvas.width / 2;
+      const centerY = gameCanvas.height / 2;
+      
+      // Create more particles for a bigger effect
+      for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        const distance = 5 + Math.random() * 10;
+        
+        const particle = {
+          x: centerX,
+          y: centerY,
+          radius: Math.random() * 5 + 3,
+          color: getRandomRallyColor(),
+          dx: Math.cos(angle) * distance,
+          dy: Math.sin(angle) * distance,
+          life: 60 + Math.random() * 60
+        };
+        
+        // Add to the game particles
+        particles.push(particle);
+        
+        // Remove particle after its lifetime
+        setTimeout(() => {
+          const index = particles.indexOf(particle);
+          if (index > -1) {
+            particles.splice(index, 1);
+          }
+        }, 2000);
+      }
+    }
+    
+    // Get random color for rally effects
+    function getRandomRallyColor() {
+      const colors = [
+        '#ffff00', // Yellow
+        '#ff9900', // Orange
+        '#ff6600', // Darker orange
+        '#ff3300', // Red-orange
+        '#ff00ff'  // Magenta
+      ];
+      return colors[Math.floor(Math.random() * colors.length)];
     }
     
     // Update power-up indicators
