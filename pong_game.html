@@ -438,52 +438,83 @@
       display: block;
     }
     
-    /* Rally counter animations */
+    /* New Rally Counter - Completely Redesigned */
     @keyframes rallyPulse {
-      0% { transform: translate(-50%, -50%) scale(1); }
-      50% { transform: translate(-50%, -50%) scale(1.1); }
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+      50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+    }
+    
+    @keyframes rallyBounce {
+      0% { transform: translate(-50%, -50%) scale(0.8); }
+      20% { transform: translate(-50%, -50%) scale(1.2); }
+      40% { transform: translate(-50%, -50%) scale(0.9); }
+      60% { transform: translate(-50%, -50%) scale(1.1); }
+      80% { transform: translate(-50%, -50%) scale(0.95); }
       100% { transform: translate(-50%, -50%) scale(1); }
     }
     
-    @keyframes rallyShake {
-      0% { transform: translate(-50%, -50%) rotate(0deg); }
-      25% { transform: translate(-50%, -50%) rotate(-2deg); }
-      75% { transform: translate(-50%, -50%) rotate(2deg); }
-      100% { transform: translate(-50%, -50%) rotate(0deg); }
+    @keyframes rallyRotate {
+      0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+      25% { transform: translate(-50%, -50%) rotate(-3deg) scale(1.05); }
+      75% { transform: translate(-50%, -50%) rotate(3deg) scale(1.05); }
+      100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
     }
     
-    @keyframes rallyGlow {
-      0% { text-shadow: 0 0 10px var(--tertiary); }
-      50% { text-shadow: 0 0 25px var(--tertiary), 0 0 40px var(--tertiary); }
-      100% { text-shadow: 0 0 10px var(--tertiary); }
+    @keyframes rallyGlowNew {
+      0% { text-shadow: 0 0 5px currentColor, 0 0 10px currentColor; }
+      50% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor; }
+      100% { text-shadow: 0 0 5px currentColor, 0 0 10px currentColor; }
     }
     
-    /* Classes for different rally levels */
+    @keyframes rallyAppear {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    
+    @keyframes rallyDisappear {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    }
+    
+    /* Classes for different rally levels - New Design */
+    .rally-level-new {
+      animation: rallyAppear 0.3s ease-out forwards;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      text-align: center;
+    }
+    
     .rally-level-1 {
-      color: #ffff00;
+      color: #ffff88;
+      animation: rallyPulse 2s infinite;
     }
     
     .rally-level-2 {
-      color: #ffcc00;
-      animation: rallyPulse 1s infinite;
+      color: #ffcc22;
+      animation: rallyPulse 1.5s infinite, rallyGlowNew 2s infinite;
     }
     
     .rally-level-3 {
       color: #ff9900;
-      animation: rallyPulse 0.8s infinite, rallyGlow 1.5s infinite;
+      animation: rallyRotate 1s infinite, rallyGlowNew 1.5s infinite;
     }
     
     .rally-level-4 {
       color: #ff6600;
-      animation: rallyShake 0.5s infinite, rallyGlow 0.8s infinite;
-      font-size: 28px;
+      animation: rallyRotate 0.8s infinite, rallyGlowNew 1s infinite;
+      font-weight: 900;
     }
     
     .rally-level-5 {
       color: #ff3300;
-      animation: rallyShake 0.3s infinite, rallyGlow 0.5s infinite;
-      font-size: 32px;
-      text-shadow: 0 0 20px #ff3300, 0 0 40px #ff3300;
+      animation: rallyRotate 0.6s infinite, rallyGlowNew 0.8s infinite;
+      font-weight: 900;
+      font-size: 110%;
+      border: 2px solid #ff3300;
     }
     
     @keyframes slideIn {
@@ -806,14 +837,70 @@
     
     // ----- Game State Variables -----
     let gameState = 'start'; // start, playing, paused, gameOver, finished, waiting
-    let maxPoints = 10; 
-    let gameSpeed = 1;
-    let randomnessLevel = 15;
+    
+    // Game settings with defaults
+    const Settings = {
+      maxPoints: 10,          // Maximum score to win
+      gameSpeed: 1,           // Overall game speed multiplier
+      randomnessLevel: 15,    // Ball bounce randomness
+      powerUpInterval: 5000,  // Time between powerups
+      
+      // Apply settings from UI controls
+      applyFromUI: function() {
+        console.log("Applying settings from UI controls");
+        
+        // Get values from UI
+        const maxPointsInput = document.getElementById('max-score-setting');
+        const gameSpeedInput = document.getElementById('game-speed-setting');
+        const powerupFrequencySelect = document.getElementById('powerup-frequency');
+        
+        // Apply max points
+        if (maxPointsInput) {
+          this.maxPoints = parseInt(maxPointsInput.value) || 10;
+          this.maxPoints = Math.max(1, Math.min(99, this.maxPoints));
+          maxPointsInput.value = this.maxPoints; // Update UI
+          console.log("Set max points:", this.maxPoints);
+        }
+        
+        // Apply game speed
+        if (gameSpeedInput) {
+          this.gameSpeed = parseFloat(gameSpeedInput.value) || 1;
+          this.gameSpeed = Math.max(0.5, Math.min(2, this.gameSpeed));
+          gameSpeedInput.value = this.gameSpeed; // Update UI
+          console.log("Set game speed:", this.gameSpeed);
+        }
+        
+        // Apply powerup frequency
+        if (powerupFrequencySelect) {
+          this.powerUpInterval = parseInt(powerupFrequencySelect.value) || 5000;
+          console.log("Set powerup interval:", this.powerUpInterval);
+        }
+        
+        // Apply to game variables for backward compatibility
+        maxPoints = this.maxPoints;
+        gameSpeed = this.gameSpeed;
+        powerUpInterval = this.powerUpInterval;
+        
+        // Update speeds
+        if (ball && leftPaddle && rightPaddle) {
+          ball.speed = 5 * this.gameSpeed;
+          leftPaddle.speed = 5 * this.gameSpeed;
+          rightPaddle.speed = 5 * this.gameSpeed;
+        }
+      }
+    };
+    
+    // Game variables
     let consecutiveHits = 0;
     let isOnlineMode = false;
     let isWaitingForOpponent = false;
     let isPlaygroundMode = false;
-    let powerUpInterval = 5000; // Default 5 seconds
+    
+    // Backward compatibility for direct access
+    let maxPoints = Settings.maxPoints;
+    let gameSpeed = Settings.gameSpeed;
+    let randomnessLevel = Settings.randomnessLevel;
+    let powerUpInterval = Settings.powerUpInterval;
     
     // ----- Background Animation Variables -----
     const particles = [];
@@ -1198,12 +1285,14 @@
     
     // Apply settings button handler
     function applySettings() {
-      updateMaxScore();
-      updateGameSpeed();
-      updatePowerUpFrequency();
+      // Apply all settings at once using the Settings object
+      Settings.applyFromUI();
+      
+      // Handle AI difficulty separately (not part of Settings object)
       updateAIDifficulty();
       
       showNotification("Settings applied!");
+      console.log("Settings applied: maxPoints =", Settings.maxPoints, "gameSpeed =", Settings.gameSpeed);
       
       // If game is already running, reset it to apply new settings
       if (gameState === 'playing' || gameState === 'paused') {
@@ -1225,33 +1314,23 @@
     
     // Update max score from settings
     function updateMaxScore() {
-      const scoreInput = document.getElementById('max-score-setting');
-      maxPoints = parseInt(scoreInput.value) || 10;
-      if (maxPoints < 1) maxPoints = 1;
-      if (maxPoints > 99) maxPoints = 99;
-      scoreInput.value = maxPoints;
+      // Using Settings object to handle this
+      Settings.applyFromUI();
     }
     
     // Update game speed from settings
     function updateGameSpeed() {
-      const speedInput = document.getElementById('game-speed-setting');
-      gameSpeed = parseFloat(speedInput.value) || 1;
-      if (gameSpeed < 0.5) gameSpeed = 0.5;
-      if (gameSpeed > 2) gameSpeed = 2;
-      
-      // Update ball and paddle speeds
-      ball.speed = 5 * gameSpeed;
-      leftPaddle.speed = 5 * gameSpeed;
-      rightPaddle.speed = 5 * gameSpeed;
+      // Using Settings object to handle this
+      Settings.applyFromUI();
     }
     
     // Update power-up frequency from settings
     function updatePowerUpFrequency() {
-      const frequencySelect = document.getElementById('powerup-frequency');
-      powerUpInterval = parseInt(frequencySelect.value) || 5000;
+      // Using Settings object to handle this
+      Settings.applyFromUI();
       
       // Clear all power-ups if disabled
-      if (powerUpInterval <= 0) {
+      if (Settings.powerUpInterval <= 0) {
         powerUps = [];
       }
     }
@@ -1705,171 +1784,298 @@
       document.getElementById('right-score').textContent = rightPaddle.score;
     }
     
-    // Update rally counter with animated effects
+    // Update rally counter with new animations and effects
     function updateRallyCounter() {
-      const counter = document.getElementById('rally-counter');
+      // Get or create counter element
+      let counter = document.getElementById('rally-counter');
       
-      if (consecutiveHits >= 3) {
-        // Clear previous content
-        counter.innerHTML = '';
-        
-        // Create text elements
-        const rallyText = document.createElement('div');
-        rallyText.textContent = 'RALLY';
-        
-        const countText = document.createElement('div');
-        countText.textContent = consecutiveHits;
-        countText.className = 'rally-count';
-        
-        // Add to counter
-        counter.appendChild(rallyText);
-        counter.appendChild(countText);
-        
-        // Show counter
-        counter.style.display = 'block';
-        
-        // Remove any existing classes
-        counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
-        
-        // Add appropriate class based on rally length
-        if (consecutiveHits >= 20) {
-          counter.classList.add('rally-level-5');
+      // If rally is too small, hide counter and return
+      if (consecutiveHits < 3) {
+        if (counter) {
+          // Set animation to disappear
+          counter.style.animation = 'rallyDisappear 0.3s forwards';
           
-          // Add extra effects for epic rallies
-          if (!counter.dataset.epicEffectsAdded) {
-            // Create particle burst
-            createEpicRallyEffect();
-            // Add sound effect
-            try {
-              const epicSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2039/2039-preview.mp3');
-              epicSound.volume = 0.4;
-              epicSound.play().catch(e => console.warn('Could not play epic rally sound', e));
-            } catch (e) {
-              console.warn('Could not play epic rally sound', e);
-            }
-            counter.dataset.epicEffectsAdded = 'true';
-          }
-        } else if (consecutiveHits >= 15) {
-          counter.classList.add('rally-level-4');
-          // Reset epic effects flag
-          delete counter.dataset.epicEffectsAdded;
-        } else if (consecutiveHits >= 10) {
-          counter.classList.add('rally-level-3');
-        } else if (consecutiveHits >= 6) {
-          counter.classList.add('rally-level-2');
-        } else {
-          counter.classList.add('rally-level-1');
+          // Hide after animation completes
+          setTimeout(() => {
+            counter.style.display = 'none';
+            counter.innerHTML = '';
+          }, 300);
+        }
+        return;
+      }
+      
+      // If counter doesn't exist or needs recreation
+      if (!counter || counter.dataset.needsReset === 'true') {
+        // If counter exists but needs reset, remove it
+        if (counter && counter.parentNode) {
+          counter.parentNode.removeChild(counter);
         }
         
-        // Get ball speed for additional effects
-        const ballSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+        // Create new counter element
+        counter = document.createElement('div');
+        counter.id = 'rally-counter';
+        counter.className = 'rally-counter rally-level-new';
         
-        // Add speed-based scaling
-        const speedScale = 1 + (ballSpeed - 5) * 0.02; // Base scale + speed factor
-        counter.style.transform = `translate(-50%, -50%) scale(${speedScale})`;
-        
-        // Change opacity based on rally length
-        counter.style.opacity = Math.min(0.3 + (consecutiveHits * 0.03), 0.9);
-      } else {
-        // Hide counter for small rallies
-        counter.style.display = 'none';
+        // Add to UI container
+        const uiContainer = document.getElementById('ui-container');
+        if (uiContainer) {
+          uiContainer.appendChild(counter);
+        } else {
+          document.body.appendChild(counter);
+        }
       }
+      
+      // Build counter content
+      counter.innerHTML = `
+        <div style="font-weight:bold;">RALLY</div>
+        <div class="rally-count">${consecutiveHits}</div>
+      `;
+      
+      // Show counter with appear animation if it was hidden
+      if (counter.style.display === 'none') {
+        counter.style.animation = 'rallyAppear 0.3s forwards';
+      }
+      counter.style.display = 'block';
+      
+      // Remove any existing level classes
+      counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
+      
+      // Add appropriate class based on rally length with improved thresholds
+      let rallyLevel = 1; // Track level for sound effects
+      
+      if (consecutiveHits >= 20) {
+        counter.classList.add('rally-level-5');
+        rallyLevel = 5;
+      } else if (consecutiveHits >= 12) {
+        counter.classList.add('rally-level-4');
+        rallyLevel = 4;
+      } else if (consecutiveHits >= 8) {
+        counter.classList.add('rally-level-3');
+        rallyLevel = 3;
+      } else if (consecutiveHits >= 5) {
+        counter.classList.add('rally-level-2');
+        rallyLevel = 2;
+      } else {
+        counter.classList.add('rally-level-1');
+        rallyLevel = 1;
+      }
+      
+      // Add level milestone effects
+      if (rallyLevel > (counter.dataset.lastLevel || 0)) {
+        // Play sound effect for level up
+        try {
+          // Different sounds for different levels
+          const soundURLs = {
+            2: 'https://assets.mixkit.co/active_storage/sfx/958/958-preview.mp3',
+            3: 'https://assets.mixkit.co/active_storage/sfx/957/957-preview.mp3',
+            4: 'https://assets.mixkit.co/active_storage/sfx/956/956-preview.mp3',
+            5: 'https://assets.mixkit.co/active_storage/sfx/2039/2039-preview.mp3'
+          };
+          
+          if (soundURLs[rallyLevel]) {
+            const levelUpSound = new Audio(soundURLs[rallyLevel]);
+            levelUpSound.volume = 0.3;
+            levelUpSound.play().catch(e => console.warn('Could not play level up sound', e));
+          }
+        } catch (e) {
+          console.warn('Could not play level up sound', e);
+        }
+        
+        // Add visual effect for level up
+        if (rallyLevel >= 3) {
+          createEpicRallyEffect(rallyLevel);
+        }
+        
+        // Bounce animation for level up
+        counter.style.animation = 'rallyBounce 0.5s ease-out';
+        setTimeout(() => {
+          // Restore proper level animation after bounce
+          counter.style.animation = '';
+          counter.classList.add(`rally-level-${rallyLevel}`);
+        }, 500);
+      }
+      
+      // Store current level for next comparison
+      counter.dataset.lastLevel = rallyLevel;
+      
+      // Mark as not needing reset
+      counter.dataset.needsReset = 'false';
     }
     
     // Reset the rally counter to zero and hide it
     function resetRallyCounter() {
       console.log("RESETTING RALLY COUNTER - consecutiveHits was:", consecutiveHits);
+      
+      // Reset hit counter first
       consecutiveHits = 0;
       
       try {
-        // Get counter element
+        // Get the counter element
         const counter = document.getElementById('rally-counter');
         
         if (counter) {
-          // MOST AGGRESSIVE METHOD: Remove from DOM and create new element
-          const parent = counter.parentNode;
-          if (parent) {
-            // Create a brand new element to replace the old one
-            const newElement = document.createElement('div');
-            newElement.id = 'rally-counter';
-            newElement.className = 'rally-counter';
-            newElement.style.display = 'none';
-            newElement.style.position = 'absolute';
-            newElement.style.top = '50%';
-            newElement.style.left = '50%';
-            newElement.style.transform = 'translate(-50%, -50%)';
-            
-            // Replace old element with new one
-            parent.replaceChild(newElement, counter);
-            console.log("Rally counter completely REPLACED");
-          } else {
-            // Fallback to traditional clearing
-            counter.innerHTML = '';
-            counter.style.cssText = 'display:none !important; opacity:0 !important; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);';
-            counter.className = 'rally-counter';
-            counter.classList.remove('rally-level-1', 'rally-level-2', 'rally-level-3', 'rally-level-4', 'rally-level-5');
-            
-            // Try to remove all data attributes
-            for (const attr in counter.dataset) {
-              delete counter.dataset[attr];
-            }
-            
-            console.log("Rally counter forcibly cleared");
-          }
-        } else {
-          console.warn("Rally counter element not found!");
+          // Apply disappearing animation
+          counter.style.animation = 'rallyDisappear 0.2s forwards';
           
-          // Try to find the UI container and create a new counter
+          // Mark for recreation on next use
+          counter.dataset.needsReset = 'true';
+          
+          // Remove element completely after animation finishes
+          setTimeout(() => {
+            if (counter.parentNode) {
+              // Remove completely from DOM
+              counter.parentNode.removeChild(counter);
+              
+              // Create a placeholder element
+              const newCounter = document.createElement('div');
+              newCounter.id = 'rally-counter';
+              newCounter.className = 'rally-counter';
+              newCounter.style.display = 'none';
+              newCounter.dataset.needsReset = 'true';
+              
+              // Add the placeholder back to the UI
+              const uiContainer = document.getElementById('ui-container');
+              if (uiContainer) {
+                uiContainer.appendChild(newCounter);
+              }
+            }
+          }, 200);
+          
+          console.log("Rally counter reset with animation");
+        } else {
+          console.log("Rally counter not found, creating placeholder");
+          
+          // Create a placeholder element for next use
           const uiContainer = document.getElementById('ui-container');
           if (uiContainer) {
             const newCounter = document.createElement('div');
             newCounter.id = 'rally-counter';
             newCounter.className = 'rally-counter';
             newCounter.style.display = 'none';
-            newCounter.style.position = 'absolute';
-            newCounter.style.top = '50%';
-            newCounter.style.left = '50%';
-            newCounter.style.transform = 'translate(-50%, -50%)';
+            newCounter.dataset.needsReset = 'true';
             uiContainer.appendChild(newCounter);
-            console.log("Created new rally counter");
           }
         }
+        
+        // Also reset the global counter
+        consecutiveHits = 0;
+        
       } catch (e) {
-        console.error("Error while resetting rally counter:", e);
+        console.error("Error resetting rally counter:", e);
+        
+        // Last resort fallback
+        consecutiveHits = 0;
+        try {
+          // Try to clear any existing counter forcefully
+          const counter = document.getElementById('rally-counter');
+          if (counter && counter.parentNode) {
+            counter.parentNode.removeChild(counter);
+          }
+        } catch (err) {
+          console.error("Failed final rally counter cleanup:", err);
+        }
       }
     }
     
     // Create epic visual effect for long rallies
-    function createEpicRallyEffect() {
+    function createEpicRallyEffect(level = 3) {
       // Create a burst of particles from the center
       const centerX = gameCanvas.width / 2;
       const centerY = gameCanvas.height / 2;
       
-      // Create more particles for a bigger effect
-      for (let i = 0; i < 20; i++) {
-        const angle = (i / 20) * Math.PI * 2;
-        const distance = 5 + Math.random() * 10;
+      // Scale effect based on rally level
+      const particleCount = 10 + (level * 5); // 25-35 particles based on level
+      const particleSize = 2 + level; // Larger particles for higher levels
+      const particleSpeed = 3 + (level * 2); // Faster particles for higher levels
+      const particleLife = 1000 + (level * 500); // Longer lifespans for higher levels
+      
+      // Create burst particles
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (i / particleCount) * Math.PI * 2;
+        const distance = particleSpeed + Math.random() * particleSpeed;
+        
+        // Different colors for different levels
+        let particleColor;
+        if (level === 5) {
+          particleColor = ['#ff3300', '#ff6600', '#ff9900', '#ffcc00'][Math.floor(Math.random() * 4)];
+        } else if (level === 4) {
+          particleColor = ['#ff6600', '#ff9900', '#ffcc00'][Math.floor(Math.random() * 3)];
+        } else {
+          particleColor = getRandomRallyColor();
+        }
         
         const particle = {
           x: centerX,
           y: centerY,
-          radius: Math.random() * 5 + 3,
-          color: getRandomRallyColor(),
+          radius: Math.random() * particleSize + 2,
+          color: particleColor,
           dx: Math.cos(angle) * distance,
           dy: Math.sin(angle) * distance,
-          life: 60 + Math.random() * 60
+          life: particleLife + Math.random() * particleLife/2,
+          // Add gravity for level 5
+          gravity: level >= 5 ? 0.05 : 0
         };
         
         // Add to the game particles
         particles.push(particle);
         
+        // Store particle in gameTimers for proper cleanup
+        if (!window.gameTimers.animations) {
+          window.gameTimers.animations = [];
+        }
+        
         // Remove particle after its lifetime
-        setTimeout(() => {
+        const timerId = setTimeout(() => {
           const index = particles.indexOf(particle);
           if (index > -1) {
             particles.splice(index, 1);
           }
-        }, 2000);
+          // Remove timer reference
+          const timerIndex = window.gameTimers.animations.indexOf(timerId);
+          if (timerIndex > -1) {
+            window.gameTimers.animations.splice(timerIndex, 1);
+          }
+        }, particleLife + 500);
+        
+        // Track timer for cleanup
+        window.gameTimers.animations.push(timerId);
+      }
+      
+      // Add special effects for level 5
+      if (level >= 5) {
+        // Screen flash effect
+        const flash = document.createElement('div');
+        flash.style.position = 'absolute';
+        flash.style.top = '0';
+        flash.style.left = '0';
+        flash.style.width = '100%';
+        flash.style.height = '100%';
+        flash.style.backgroundColor = 'rgba(255, 120, 0, 0.2)';
+        flash.style.zIndex = '99';
+        flash.style.pointerEvents = 'none';
+        flash.style.animation = 'flashFade 0.5s forwards';
+        
+        // Add style for animation if it doesn't exist
+        if (!document.getElementById('flash-style')) {
+          const style = document.createElement('style');
+          style.id = 'flash-style';
+          style.textContent = `
+            @keyframes flashFade {
+              0% { opacity: 0.5; }
+              100% { opacity: 0; }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(flash);
+        
+        // Remove flash after animation
+        setTimeout(() => {
+          if (flash.parentNode) {
+            flash.parentNode.removeChild(flash);
+          }
+        }, 500);
       }
     }
     
