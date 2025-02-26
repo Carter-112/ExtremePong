@@ -1909,6 +1909,12 @@
         
         // Add slight randomness to bounce
         ball.dy += (Math.random() - 0.5) * (randomnessLevel / 100);
+        
+        // Add horizontal randomness too for more unpredictable bounces
+        ball.dx += (Math.random() - 0.5) * (randomnessLevel / 150);
+        
+        // Create small bounce effect
+        createSmallBounceEffect(ball.x, ball.y);
       }
       
       // Ball collision with paddles
@@ -2129,8 +2135,11 @@
         ball.dx = Math.abs(speed * Math.cos(bounceAngle));
         ball.dy = speed * Math.sin(bounceAngle);
         
-        // Add slight randomness
+        // Add slight randomness to vertical movement
         ball.dy += (Math.random() - 0.5) * (randomnessLevel / 100);
+        
+        // Add small randomness to horizontal movement too
+        ball.dx += (Math.random() - 0.5) * (randomnessLevel / 200);
         
         // Collision effect on canvas
         createPaddleCollisionEffect(leftPaddle.x + leftPaddle.width, ball.y, leftPaddle.color);
@@ -2159,8 +2168,11 @@
         ball.dx = -Math.abs(speed * Math.cos(bounceAngle));
         ball.dy = speed * Math.sin(bounceAngle);
         
-        // Add slight randomness
+        // Add slight randomness to vertical movement
         ball.dy += (Math.random() - 0.5) * (randomnessLevel / 100);
+        
+        // Add small randomness to horizontal movement too
+        ball.dx -= (Math.random() - 0.5) * (randomnessLevel / 200);
         
         // Collision effect on canvas
         createPaddleCollisionEffect(rightPaddle.x, ball.y, rightPaddle.color);
@@ -2191,6 +2203,34 @@
             particles.splice(index, 1);
           }
         }, 500);
+      }
+    }
+    
+    // Create small bounce effect for wall collisions
+    function createSmallBounceEffect(x, y) {
+      // Create fewer particles for wall bounces to reduce visual noise
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        const particle = {
+          x: x,
+          y: y < gameCanvas.height/2 ? y + 5 : y - 5, // Offset slightly from wall
+          radius: Math.random() * 2 + 1,
+          color: 'rgba(255, 255, 255, 0.7)',
+          dx: Math.cos(angle) * (Math.random() * 2 + 1),
+          dy: Math.sin(angle) * (Math.random() * 2 + 1) * (y < gameCanvas.height/2 ? 1 : -1), // Bounce away from wall
+          life: 15
+        };
+        
+        // Add to the game particles
+        particles.push(particle);
+        
+        // Remove after time expires
+        setTimeout(() => {
+          const index = particles.indexOf(particle);
+          if (index > -1) {
+            particles.splice(index, 1);
+          }
+        }, 300);
       }
     }
     
